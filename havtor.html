@@ -37,6 +37,8 @@ body.js .verkty{display:flex}
 #treff div{padding:8px 13px;cursor:pointer;border-bottom:1px solid #f2f4f6}
 #treff div:hover{background:#f2f7fc}
 #treff b{font:400 14px var(--serif);display:block}
+.treffhode{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dus);
+ padding:8px 13px 4px;border-bottom:1px solid var(--kant);cursor:default}
 #treff span{font-size:11.5px;color:var(--dus)}
 body.js .tegnf{display:block}
 .knapper{display:flex;border:1px solid var(--kant);border-radius:999px;overflow:hidden;background:#fff}
@@ -181,7 +183,8 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
  /* knip med to fingre zoomer — egne zoomknapper stjeler bare plass her */
  button[title="Zoom ut"],button[title="Zoom inn"]{display:none}
  #hel,#hjelpknapp{width:40px;height:40px;margin-left:0}
- #treff{position:fixed;top:64px;left:12px;width:calc(100vw - 24px);max-height:45vh}
+ #treff{position:fixed;top:64px;left:12px;width:calc(100vw - 24px);max-height:52vh}
+ #treff div{padding:12px 14px;font-size:15px}
  .tegnf{display:none !important}
  body.js #duk{top:58px;height:calc(100vh - 58px)}
  /* nativ mobil: duken i vanlig flyt, stor nok til å leses, siden ruller selv */
@@ -1254,6 +1257,17 @@ addEventListener('fullscreenchange', () => settHel(!!document.fullscreenElement)
 
 // ---------- søk ----------
 const sok = document.getElementById('sok'), treff = document.getElementById('treff');
+// Gardinen lå inne i topplinjen og ble på enkelte mobiler aldri malt, enda målene
+// sa synlig. Den flyttes ut i dokumentroten med egen, høy stabling, og plasseres
+// under søkefeltet i det den åpnes.
+document.body.appendChild(treff);
+treff.style.zIndex = 70;
+function plasserTreff() {
+  const r = document.querySelector('.sokboks').getBoundingClientRect();
+  treff.style.position = 'fixed';
+  treff.style.top = (r.bottom + 6) + 'px';
+  treff.style.left = Math.max(8, Math.round(r.left)) + 'px';
+}
 sok.addEventListener('input', () => {
   const q = sok.value.trim().toLowerCase();
   // Rene tall — og formen «ane 248» — søker på ANENUMMER, ikke på navn.
@@ -1262,13 +1276,16 @@ sok.addEventListener('input', () => {
   if (!erTall && q.length < 2) { treff.style.display = 'none'; return; }
   const t = erTall
     ? Object.values(P).filter(p => String(p.anenr).split(/[;,]/)
-        .some(a => a.trim() === tall)).slice(0, 30)
-    : Object.values(P).filter(p => p.navn.toLowerCase().includes(q)).slice(0, 30);
-  treff.innerHTML = t.map(p =>
+        .some(a => a.trim() === tall)).slice(0, 100)
+    : Object.values(P).filter(p => p.navn.toLowerCase().includes(q)).slice(0, 100);
+  treff.innerHTML = (t.length > 1
+      ? `<div class="treffhode">${t.length} treff — velg:</div>` : '')
+    + t.map(p =>
     `<div onclick="sok.blur();gaTil('${p.pid}');treff.style.display='none';sok.value='';">
       <b>${esc(p.navn)}</b><span>${esc(p.lev)}${
         slektskap(p.anenr, p.kj) ? ' · ' + esc(slektskap(p.anenr, p.kj)) : ''}</span></div>`).join('')
     || '<div class="pmeta" style="padding:10px 13px">Ingen treff</div>';
+  plasserTreff();
   treff.style.display = 'block';
 });
 addEventListener('click', e => { if (!e.target.closest('.sokboks')) treff.style.display='none'; });
