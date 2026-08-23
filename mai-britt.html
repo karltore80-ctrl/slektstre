@@ -1274,8 +1274,11 @@ addEventListener('click', e => { if (!e.target.closest('.sokboks')) treff.style.
 // skal ikke være eneste vei inn.
 sok.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
-  const første = treff.querySelector('div[onclick]');
-  if (første) { første.click(); sok.blur(); }
+  // Ett treff: åpne det. Flere treff: legg bort tastaturet og la listen stå,
+  // så velger man selv — Enter skal aldri velge på ens vegne.
+  const rader = treff.querySelectorAll('div[onclick]');
+  if (rader.length === 1) { rader[0].click(); }
+  sok.blur();
 });
 addEventListener('keydown', e => { if (e.key === 'Escape') lukk(); });
 
