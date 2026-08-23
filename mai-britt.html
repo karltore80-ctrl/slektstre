@@ -7,14 +7,14 @@
 *{box-sizing:border-box}
 /* Tavlen er tegnet for lys bunn. Uten dette snur mobilens tvangsmørking bakgrunnen
    til svart og lar vifta stå som en utvasket hvit skive. */
-html{color-scheme:only light;background:#fbfcfd}
+html{color-scheme:only light;background:#fbfcfd;background-image:linear-gradient(#fbfcfd,#fbfcfd)}
 :root{--blekk:#14161a;--dus:#6b7280;--kant:#e3e6ea;--lenke:#1f4e79;
  --belagt:#1f7d55;--sanns:#c98f10;--ubekr:#a63a44;
  --belagt-t:#1c6749;--sanns-t:#8a6110;--ubekr-t:#8f2f39;
  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
 html,body{height:100%;overscroll-behavior:none}
 body.js{overflow:hidden;padding-top:0}
-body{margin:0;background:#fbfcfd;color:var(--blekk);overflow:auto;padding-top:64px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+body{margin:0;background:#fbfcfd;background-image:linear-gradient(#fbfcfd,#fbfcfd);color:var(--blekk);overflow:auto;padding-top:64px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
  font:15px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 
 header{position:fixed;inset:0 0 auto 0;z-index:60;display:flex;align-items:center;gap:18px;
@@ -67,7 +67,7 @@ text{font-family:var(--serif);fill:var(--blekk)}
 .midta{font-size:13px;fill:#8b93a0;text-anchor:middle}
 
 #panel{position:fixed;top:74px;right:18px;width:378px;max-width:calc(100vw - 36px);
- max-height:calc(100vh - 92px);background:#fff;border:1px solid var(--kant);border-radius:14px;
+ max-height:calc(100vh - 92px);background:#fff;background-image:linear-gradient(#fff,#fff);border:1px solid var(--kant);border-radius:14px;
  box-shadow:0 18px 50px rgba(20,30,50,.13);
  transform:translateX(calc(100% + 26px));transition:transform .34s cubic-bezier(.4,0,.2,1);
  overflow:auto;z-index:40;padding:22px 26px 26px 30px}
