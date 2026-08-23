@@ -170,7 +170,7 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
  h1{display:none}
  .verkty{margin-left:0;width:100%;gap:6px;flex-wrap:nowrap}
  .sokboks{flex:1;min-width:104px;display:flex}
- #sok{width:100%;min-width:0;padding-top:10px;padding-bottom:10px}
+ #sok{width:100%;min-width:0;padding-top:10px;padding-bottom:10px;font-size:16px}
  #sok:focus{width:100%}
  .knapper button{padding:11px 10px;font-size:13px;white-space:nowrap}
  /* knip med to fingre zoomer — egne zoomknapper stjeler bare plass her */
@@ -279,7 +279,7 @@ const RINGNAVN=['','Foreldre','Besteforeldre','Oldeforeldre','Tippoldeforeldre',
 function erSmal() { return PEKEGROV || innerWidth < 700 || innerHeight < 500; }
 // (PEKEGROV defineres under, men heises av motoren — funksjonen kalles først senere.)
 const PEKEGROV = matchMedia('(pointer: coarse)').matches;
-let RINGER = erSmal() ? 5 : 6, ROT = 1, valgt = null;
+let RINGVALG = erSmal() ? 5 : 6, RINGER = RINGVALG, ROT = 1, valgt = null;
 const BUNN = 96;   // luft under vifta i tavleenheter — holder ytterste ring klar av tegnforklaringa
 let sk = 1, tx = 0, ty = 0;                      // zoom og panorering
 document.body.classList.add('js');
@@ -583,7 +583,16 @@ function ramme() {
   bruk();
   if (rører) requestAnimationFrame(ramme); else løper = false;
 }
-function kjør() { if (!løper) { løper = true; requestAnimationFrame(ramme); } }
+// NYE LEDD ÅPENBARER SEG SELV (KTØ 24.08.2026): tallknappene setter grunnvisningen,
+// og zoomer man inn, foldes dypere ringer ut automatisk — helt til registerets bunn.
+// Trinnene er zoomterskler; tegn() kalles bare når ringtallet faktisk endres.
+function autoRinger(stille) {
+  const trinn = mSk < 2 ? 0 : mSk < 3.2 ? 1 : mSk < 5 ? 2 : mSk < 7.5 ? 3 : mSk < 11 ? 4 : 6;
+  const ny = Math.min(MAXGEN, RINGVALG + trinn);
+  if (ny !== RINGER) { RINGER = ny; if (!stille) tegn(); return true; }
+  return false;
+}
+function kjør() { autoRinger(); if (!løper) { løper = true; requestAnimationFrame(ramme); } }
 const hode = document.querySelector('header');
 function plasserDuk() {
   const h = hode.offsetHeight;
@@ -1152,6 +1161,13 @@ sok.addEventListener('input', () => {
   treff.style.display = 'block';
 });
 addEventListener('click', e => { if (!e.target.closest('.sokboks')) treff.style.display='none'; });
+// Mobiltastaturets «søk»-knapp åpner beste treff — å treffe en rad med fingeren
+// skal ikke være eneste vei inn.
+sok.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const første = treff.querySelector('div[onclick]');
+  if (første) { første.click(); sok.blur(); }
+});
 addEventListener('keydown', e => { if (e.key === 'Escape') lukk(); });
 
 // ---------- ringvalg ----------
@@ -1159,9 +1175,9 @@ const rv = document.getElementById('ringvalg');
 [4,5,6,7,8].forEach(n => {
   const b = document.createElement('button');
   b.textContent = n; b.title = n + ' generasjoner';
-  b.onclick = () => { RINGER = n; [...rv.children].forEach(c =>
-    c.classList.toggle('på', +c.textContent === n)); tegn(); };
-  if (n === RINGER) b.classList.add('på');
+  b.onclick = () => { RINGVALG = n; [...rv.children].forEach(c =>
+    c.classList.toggle('på', +c.textContent === n)); RINGER = n; autoRinger(true); tegn(); };
+  if (n === RINGVALG) b.classList.add('på');
   rv.appendChild(b);
 });
 document.getElementById('tilbakeknapp').style.display = 'none';
