@@ -376,7 +376,7 @@ function tegn() {
   for (let g = 1; g <= RINGER; g++) { const v = RINGER > 6 ? (0.85 + 0.05 * g) : (0.6 + 0.045 * g * g); vekt.push(v); sum += v; }
   // Med hele anerekken tegnet trenger de ytterste ringene rom — taket løftes
   // på berøringsskjerm, der flaten er stor og rullbar.
-  const total = Math.max(460, Math.min(RINGER > 6 ? 1450 : 1200, 150 * RINGER));
+  const total = Math.max(460, Math.min(RINGER > 6 ? 1250 : 1200, 150 * RINGER));
   const RR = [R0];
   for (let g = 1; g <= RINGER; g++) RR.push(RR[g-1] + total * vekt[g-1] / sum);
   const RMAX = RR[RINGER], MARG = 34;
@@ -668,10 +668,11 @@ let ringerTimer = 0, grunnSk = 1, beholdUtsnitt = false, sistPlass = 0;
 let rotstakk = [];   // veien man har gått innover, så utzooming går samme vei hjem   // startskalaen — utfolding måles RELATIVT til den
 function ringmål() {
   const f = mSk / (grunnSk || 1);
-  const trinn = f < 1.8 ? 0 : f < 2.8 ? 1 : f < 4.2 ? 2 : f < 6.3 ? 3 : f < 9 ? 4 : 6;
+  // Sju ringer er stripegrensen — forbi den trår tavlen heller et steg bakover.
+  const trinn = f < 1.8 ? 0 : f < 2.9 ? 1 : 2;
   // Åtte ringer er lesbarhetens grense i en vifte. Dypere ledd nås ved å sette
   // anen i midten — feltene med mer bakenfor får et merke i ytterkanten.
-  return Math.min(8, MAXGEN, RINGVALG + trinn);
+  return Math.min(7, MAXGEN, RINGVALG + trinn);
 }
 function plasstekst() {
   const u = boks().u * mSk;
@@ -687,7 +688,7 @@ function autoRinger() {
     // TAVLEN GÅR MED (KTØ 23.08.2026): presser man zoomen dypt inn mot en gren,
     // trår tavlen et steg bakover — anen i synsfeltets midte settes i sentrum,
     // og alt der får full størrelse. Zoomer man helt ut igjen, trår den hjem.
-    if (f > 4.6) {
+    if (f > 3.6) {
       const e = document.elementFromPoint(innerWidth / 2, innerHeight * 0.45);
       const m = e && e.closest ? e.closest('[data-pid]') : null;
       if (m && m.dataset.pid !== SLOT[ROT]) {
