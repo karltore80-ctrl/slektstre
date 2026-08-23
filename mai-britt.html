@@ -373,10 +373,10 @@ function tegn() {
   const vekt = []; let sum = 0;
   // Kvadratisk dybdevekst gjorde de ytterste feltene til lange smale «tarmer»
   // når hele rekken tegnes. På berøringsskjerm vokser dybden bare svakt.
-  for (let g = 1; g <= RINGER; g++) { const v = RINGER > 8 ? (0.85 + 0.05 * g) : (0.6 + 0.045 * g * g); vekt.push(v); sum += v; }
+  for (let g = 1; g <= RINGER; g++) { const v = RINGER > 6 ? (0.85 + 0.05 * g) : (0.6 + 0.045 * g * g); vekt.push(v); sum += v; }
   // Med hele anerekken tegnet trenger de ytterste ringene rom — taket løftes
   // på berøringsskjerm, der flaten er stor og rullbar.
-  const total = Math.max(460, Math.min(RINGER > 8 ? 1700 : 1200, 150 * RINGER));
+  const total = Math.max(460, Math.min(RINGER > 6 ? 1450 : 1200, 150 * RINGER));
   const RR = [R0];
   for (let g = 1; g <= RINGER; g++) RR.push(RR[g-1] + total * vekt[g-1] / sum);
   const RMAX = RR[RINGER], MARG = 34;
@@ -656,13 +656,15 @@ function ramme() {
   for (let i = POP.length - 1; i >= 0; i--)
     if (POP[i].mål === 0 && POP[i].t === 0) POP.splice(i, 1);
   bruk();
+  const nåR = performance.now();
+  if (nåR - sistPlass > 120) { sistPlass = nåR; plasstekst(); }
   if (rører) requestAnimationFrame(ramme); else løper = false;
 }
 // LEDDENE ÅPENBARER SEG (KTØs endelige form 23.08.2026): tavlen står fast, zoomen
 // er egen og skarp, og når bevegelsen faller til ro foldes dypere ringer ut. Navn
 // vises BARE der feltet har målt plass på skjermen — derfor aldri rot eller
 // overlapp, og feltene vokser når man går innover.
-let ringerTimer = 0, grunnSk = 1, beholdUtsnitt = false;   // startskalaen — utfolding måles RELATIVT til den
+let ringerTimer = 0, grunnSk = 1, beholdUtsnitt = false, sistPlass = 0;   // startskalaen — utfolding måles RELATIVT til den
 function ringmål() {
   const f = mSk / (grunnSk || 1);
   const trinn = f < 1.8 ? 0 : f < 2.8 ? 1 : f < 4.2 ? 2 : f < 6.3 ? 3 : f < 9 ? 4 : 6;
@@ -685,7 +687,13 @@ function autoRinger() {
     plasstekst();
   }, 200);
 }
-function kjør() { autoRinger(); if (!løper) { løper = true; requestAnimationFrame(ramme); } }
+function kjør() {
+  autoRinger();
+  // navnene skal komme til syne UNDERVEIS i zoomen, ikke først ved ro
+  const nå = performance.now();
+  if (nå - sistPlass > 120) { sistPlass = nå; plasstekst(); }
+  if (!løper) { løper = true; requestAnimationFrame(ramme); }
+}
 const hode = document.querySelector('header');
 function plasserDuk() {
   if (NATIV) { duk.style.top=''; duk.style.height=''; return; }
