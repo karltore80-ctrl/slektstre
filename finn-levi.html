@@ -373,7 +373,11 @@ function tegn() {
   const vekt = []; let sum = 0;
   // Kvadratisk dybdevekst gjorde de ytterste feltene til lange smale «tarmer»
   // når hele rekken tegnes. På berøringsskjerm vokser dybden bare svakt.
-  for (let g = 1; g <= RINGER; g++) { const v = RINGER > 6 ? (0.85 + 0.05 * g) : (0.6 + 0.045 * g * g); vekt.push(v); sum += v; }
+  for (let g = 1; g <= RINGER; g++) {
+    let v = RINGER > 6 ? (0.85 + 0.05 * g) : (0.6 + 0.045 * g * g);
+    if (g === RINGER && g >= 5) v *= 0.55;   // ytterste ring holdes grunn — aldri remser
+    vekt.push(v); sum += v;
+  }
   // Med hele anerekken tegnet trenger de ytterste ringene rom — taket løftes
   // på berøringsskjerm, der flaten er stor og rullbar.
   const total = Math.max(460, Math.min(RINGER > 6 ? 1250 : 1200, 150 * RINGER));
@@ -668,11 +672,11 @@ let ringerTimer = 0, grunnSk = 1, beholdUtsnitt = false, sistPlass = 0;
 let rotstakk = [];   // veien man har gått innover, så utzooming går samme vei hjem   // startskalaen — utfolding måles RELATIVT til den
 function ringmål() {
   const f = mSk / (grunnSk || 1);
-  // Sju ringer er stripegrensen — forbi den trår tavlen heller et steg bakover.
-  const trinn = f < 1.8 ? 0 : f < 2.9 ? 1 : 2;
+  // SEKS ringer er grensen for ordentlige felt — forbi den trår tavlen bakover.
+  const trinn = f < 1.9 ? 0 : 1;
   // Åtte ringer er lesbarhetens grense i en vifte. Dypere ledd nås ved å sette
   // anen i midten — feltene med mer bakenfor får et merke i ytterkanten.
-  return Math.min(7, MAXGEN, RINGVALG + trinn);
+  return Math.min(6, MAXGEN, RINGVALG + trinn);
 }
 function plasstekst() {
   const u = boks().u * mSk;
@@ -688,7 +692,7 @@ function autoRinger() {
     // TAVLEN GÅR MED (KTØ 23.08.2026): presser man zoomen dypt inn mot en gren,
     // trår tavlen et steg bakover — anen i synsfeltets midte settes i sentrum,
     // og alt der får full størrelse. Zoomer man helt ut igjen, trår den hjem.
-    if (f > 3.6) {
+    if (f > 2.7) {
       const e = document.elementFromPoint(innerWidth / 2, innerHeight * 0.45);
       const m = e && e.closest ? e.closest('[data-pid]') : null;
       if (m && m.dataset.pid !== SLOT[ROT]) {
