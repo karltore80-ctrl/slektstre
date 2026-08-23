@@ -515,7 +515,9 @@ function tegn() {
       });
     }
   }
-  tilpass();
+  // Utfolding midt i en zoom skal BEHOLDE utsnittet — å nullstille til
+  // startbildet her fikk ringene til å falle tilbake («6 → 3»-hoppet).
+  if (beholdUtsnitt) bruk(); else tilpass();
   plasstekst();
 }
 // NATIV: alle anene er tegnet hele tiden — teksten i et felt vises først når
@@ -657,7 +659,7 @@ function ramme() {
 // er egen og skarp, og når bevegelsen faller til ro foldes dypere ringer ut. Navn
 // vises BARE der feltet har målt plass på skjermen — derfor aldri rot eller
 // overlapp, og feltene vokser når man går innover.
-let ringerTimer = 0, grunnSk = 1;   // startskalaen — utfolding måles RELATIVT til den
+let ringerTimer = 0, grunnSk = 1, beholdUtsnitt = false;   // startskalaen — utfolding måles RELATIVT til den
 function ringmål() {
   const f = mSk / (grunnSk || 1);
   const trinn = f < 1.8 ? 0 : f < 2.8 ? 1 : f < 4.2 ? 2 : f < 6.3 ? 3 : f < 9 ? 4 : 6;
@@ -676,7 +678,7 @@ function autoRinger() {
   ringerTimer = setTimeout(() => {
     if (pekere.size) { autoRinger(); return; }
     const ny = ringmål();
-    if (ny !== RINGER) { RINGER = ny; tegn(); }
+    if (ny !== RINGER) { RINGER = ny; beholdUtsnitt = true; tegn(); beholdUtsnitt = false; }
     plasstekst();
   }, 200);
 }
