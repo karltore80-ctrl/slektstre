@@ -184,6 +184,12 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
  #treff{position:fixed;top:64px;left:12px;width:calc(100vw - 24px);max-height:45vh}
  .tegnf{display:none !important}
  body.js #duk{top:58px;height:calc(100vh - 58px)}
+ /* nativ mobil: duken i vanlig flyt, stor nok til å leses, siden ruller selv */
+ .nativ body.js{overflow:auto;-webkit-overflow-scrolling:touch}
+ .nativ body.js #duk{position:static;width:2600px;max-width:none;height:auto;
+  margin:64px 0 40vh;touch-action:auto;cursor:default}
+ .nativ header{position:fixed;left:0;right:auto;width:100vw}
+ .nativ #ringvalg{display:none}
  #panel{top:auto;bottom:0;left:0;right:0;width:100%;max-width:100%;
   border-radius:16px 16px 0 0;border-left:0;border-right:0;border-bottom:0;
   max-height:62vh;transform:translateY(105%);
@@ -284,7 +290,12 @@ const RINGNAVN=['','Foreldre','Besteforeldre','Oldeforeldre','Tippoldeforeldre',
 function erSmal() { return PEKEGROV || innerWidth < 700 || innerHeight < 500; }
 // (PEKEGROV defineres under, men heises av motoren — funksjonen kalles først senere.)
 const PEKEGROV = matchMedia('(pointer: coarse)').matches;
-let RINGER = erSmal() ? 5 : 6, ROT = 1, valgt = null;
+// På berøringsskjerm styrer TELEFONEN selv: vanlig rulling og nettleserens egen
+// knip-zoom. All egen fingerstyring (pan/knip/dobbelttrykk) gjelder bare mus/PC.
+const NATIV = PEKEGROV;
+if (NATIV) document.documentElement.classList.add('nativ');
+// nativ: ett trykk på et felt åpner kortet — resten gjør telefonen
+let RINGER = NATIV ? MAXGEN : (erSmal() ? 5 : 6), ROT = 1, valgt = null;
 const BUNN = 96;   // luft under vifta i tavleenheter — holder ytterste ring klar av tegnforklaringa
 let sk = 1, tx = 0, ty = 0;                      // zoom og panorering
 document.body.classList.add('js');
@@ -356,7 +367,9 @@ function tegn() {
   const R0 = 86;
   const vekt = []; let sum = 0;
   for (let g = 1; g <= RINGER; g++) { const v = 0.6 + 0.045 * g * g; vekt.push(v); sum += v; }
-  const total = Math.max(460, Math.min(1200, 150 * RINGER));
+  // Med hele anerekken tegnet trenger de ytterste ringene rom — taket løftes
+  // på berøringsskjerm, der flaten er stor og rullbar.
+  const total = Math.max(460, Math.min(NATIV ? 2100 : 1200, 150 * RINGER));
   const RR = [R0];
   for (let g = 1; g <= RINGER; g++) RR.push(RR[g-1] + total * vekt[g-1] / sum);
   const RMAX = RR[RINGER], MARG = 34;
@@ -494,6 +507,21 @@ function tegn() {
   }
   tilpass();
 }
+// NATIV: alle anene er tegnet hele tiden — teksten i et felt vises først når
+// feltet er bredt nok til å leses, målt mot telefonens egen zoom (visualViewport).
+// Ingen omtegning: bare synlighet slås av og på, derfor ingen hopping.
+function synligTekst() {
+  if (!NATIV) return;
+  const vb = duk.viewBox.baseVal;
+  const enh = duk.clientWidth / vb.width * ((window.visualViewport && visualViewport.scale) || 1);
+  duk.querySelectorAll('g.tx[data-bue]').forEach(gg => {
+    gg.style.visibility = (+gg.dataset.bue * enh > 26) ? '' : 'hidden';
+  });
+}
+if (NATIV && window.visualViewport) {
+  let vvT = 0;
+  visualViewport.addEventListener('resize', () => { clearTimeout(vvT); vvT = setTimeout(synligTekst, 180); });
+}
 addEventListener('resize', () => { plasserDuk(); sistE = -1; bruk(); });
 new ResizeObserver(() => { sistE = -1; bruk(); }).observe(duk);
 
@@ -591,6 +619,7 @@ function ramme() {
 function kjør() { if (!løper) { løper = true; requestAnimationFrame(ramme); } }
 const hode = document.querySelector('header');
 function plasserDuk() {
+  if (NATIV) { duk.style.top=''; duk.style.height=''; return; }
   const h = hode.offsetHeight;
   duk.style.top = h + 'px';
   duk.style.height = (innerHeight - h) + 'px';
@@ -604,6 +633,20 @@ function boks() {
 function tilpass() {
   const {b, vb, u, ox, oy} = boks();
   const cx = vb.width / 2, cy = vb.height - BUNN;
+  if (NATIV) {
+    // nativ mobil: ingen transform — siden selv ruller. Midtstill på personen nederst.
+    sk = mSk = 1; tx = mTx = 0; ty = mTy = 0; bruk(); synligTekst();
+    // Rull inn så midtpersonen står i synsfeltet — nettleseren regner selv.
+    // Oppstartsbilder og overlegg kan nullstille rullingen, derfor ett gjensyn.
+    const midtstill = () => {
+      const m = duk.querySelector('.midtn');
+      if (m) m.scrollIntoView({block: 'center', inline: 'center'});
+    };
+    requestAnimationFrame(midtstill);
+    // rulleren er BODY-elementet (html/body har fast høyde) — mål der
+    setTimeout(() => { if (Math.max(scrollX, document.body.scrollLeft) < 50) midtstill(); }, 600);
+    return;
+  }
   if (erSmal()) {
     // probanden nederst, og vifta så stor at den fyller skjermhøyden
     const viftehøyde = (vb.height - BUNN - 76) * u;               // viftas høyde på skjermen ved sk=1
@@ -631,7 +674,7 @@ function zoomMot(klientX, klientY, faktor) {
   mTx = mx - (mx - mTx) * (ny / mSk); mTy = my - (my - mTy) * (ny / mSk); mSk = ny;
   kjør();
 }
-duk.addEventListener('wheel', e => {
+if (!NATIV) duk.addEventListener('wheel', e => {
   e.preventDefault();
   // Hjul og styreflate rapporterer i ULIKE enheter: DOM_DELTA_PIXEL (styreflate, små
   // verdier) mot DOM_DELTA_LINE (musehjul, ±3) og DOM_DELTA_PAGE. Uten normalisering
@@ -642,25 +685,29 @@ duk.addEventListener('wheel', e => {
   const d = Math.max(-90, Math.min(90, e.deltaY * enhet));
   zoomMot(e.clientX, e.clientY, Math.exp(-d * 0.0016));
 }, {passive:false});
-duk.addEventListener('dblclick', e => zoomMot(e.clientX, e.clientY, 1.45));
+if (!NATIV) duk.addEventListener('dblclick', e => zoomMot(e.clientX, e.clientY, 1.45));
 // iOS lar sin egen side-zoom stjele knipet selv med touch-action:none på duken.
 // Gesture-hendelsene finnes bare i WebKit og legges i ro, så viftas knip vinner.
-for (const gh of ['gesturestart','gesturechange','gestureend'])
+if (!NATIV) for (const gh of ['gesturestart','gesturechange','gestureend'])
   document.addEventListener(gh, e => e.preventDefault(), {passive:false});
 // iOS i en innrammet visning overser touch-action:none på duken: å dra i vifta
 // rullet HELE vinduet, panoreringen ble avbrutt (pointercancel), og resten av
 // bevegelsen ble lest som et trykk. Rullingen stanses derfor i selve hendelsen.
-duk.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
+if (!NATIV) duk.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
 // Vises siden i en verts-app sitt ark, dras hele arket ned når fingeren drar på
 // tavlen eller kortkanten. Alt som ikke skal rulle (alt utenfor panelet, hjelpen,
 // trefflisten og topplinjen) forbrukes derfor av siden selv.
-document.addEventListener('touchmove', e => {
+if (!NATIV) document.addEventListener('touchmove', e => {
   if (!e.target.closest || !e.target.closest('#panel,#hjelp,#treff,header')) e.preventDefault();
 }, {passive:false});
 const pekere = new Map();
+if (NATIV) duk.addEventListener('click', e => {
+  const m = e.target.closest('[data-pid]');
+  if (m) { popp(+m.dataset.k); vis(m.dataset.pid, +m.dataset.k); }
+});
 let drar = false, sx = 0, sy = 0, klikkmål = null, flyttet = 0;
 let knip = 0, sistTapp = 0, tappX = 0, tappY = 0;
-duk.addEventListener('pointerdown', e => {
+if (!NATIV) duk.addEventListener('pointerdown', e => {
   duk.setPointerCapture(e.pointerId);
   pekere.set(e.pointerId, [e.clientX, e.clientY]);
   if (pekere.size === 2) {                      // knip med to fingre
@@ -674,7 +721,7 @@ duk.addEventListener('pointerdown', e => {
   klikkmål = m ? [m.dataset.pid, +m.dataset.k] : null;
   duk.classList.add('drar');
 });
-duk.addEventListener('pointermove', e => {
+if (!NATIV) duk.addEventListener('pointermove', e => {
   if (!pekere.has(e.pointerId)) return;
   pekere.set(e.pointerId, [e.clientX, e.clientY]);
   if (pekere.size === 2 && knip > 0) {
@@ -701,7 +748,7 @@ function slipp(e) {
   pekere.delete(e.pointerId);
   if (pekere.size < 2) knip = 0;
 }
-addEventListener('pointerup', e => {
+if (!NATIV) addEventListener('pointerup', e => {
   slipp(e);
   if (e.target.closest('#panel')) return;   // klikk inni infopanelet (f.eks. "Vis avskrift") skal ikke lukke panelet
   if (pekere.size) return;
@@ -721,7 +768,7 @@ addEventListener('pointerup', e => {
   }
   klikkmål = null;
 });
-addEventListener('pointercancel', slipp);
+if (!NATIV) addEventListener('pointercancel', slipp);
 
 // ---------- panel ----------
 function rad(t, v) { return v ? `<dt>${t}</dt><dd>${v}</dd>` : ''; }
@@ -1094,6 +1141,7 @@ function settSentrum(id) {
 function tilbake() { ROT = 1; settSentrum(SLOT[1]); }
 function nullstill() {
   lukk();
+  if (NATIV) { tilpass(); return; }
   const {b, vb, u, oy} = boks();
   mSk = 1; mTx = 0;
   mTy = erSmal() ? (b.height - 92 - oy) / u - vb.height : 0;
