@@ -185,7 +185,8 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
  .tegnf{display:none !important}
  body.js #duk{top:58px;height:calc(100vh - 58px)}
  /* nativ mobil: duken i vanlig flyt, stor nok til å leses, siden ruller selv */
- .nativ body.js{overflow:auto;-webkit-overflow-scrolling:touch}
+ .nativ html,.nativ body{height:auto}
+ .nativ body.js{overflow:visible}
  .nativ body.js #duk{position:static;width:2600px;max-width:none;height:auto;
   margin:64px 0 40vh;touch-action:auto;cursor:default}
  .nativ header{position:fixed;left:0;right:auto;width:100vw}
@@ -357,7 +358,8 @@ function fyll(k, g) {
   if (k === 1) return '#ffffff';
   let f = k; while (f >= 4) f = Math.floor(f / 2);
   const kj = (f === 2);
-  const t = Math.min(g / RINGER, 1);
+  // Blekningen var stemt for seks ringer; med tolv ble ytterkanten helt hvit.
+  const t = Math.min(g / (NATIV ? 17 : RINGER), 1);
   return kj ? `hsl(207 ${32 - 17 * t}% ${88 + 8 * t}%)`    // farsslekten, dempet blågrå
             : `hsl(19 ${40 - 22 * t}% ${90 + 6 * t}%)`;   // morsslekten, varm terrakotta
 }
@@ -366,10 +368,12 @@ function tegn() {
   sistE = -1;
   const R0 = 86;
   const vekt = []; let sum = 0;
-  for (let g = 1; g <= RINGER; g++) { const v = 0.6 + 0.045 * g * g; vekt.push(v); sum += v; }
+  // Kvadratisk dybdevekst gjorde de ytterste feltene til lange smale «tarmer»
+  // når hele rekken tegnes. På berøringsskjerm vokser dybden bare svakt.
+  for (let g = 1; g <= RINGER; g++) { const v = NATIV ? (0.85 + 0.05 * g) : (0.6 + 0.045 * g * g); vekt.push(v); sum += v; }
   // Med hele anerekken tegnet trenger de ytterste ringene rom — taket løftes
   // på berøringsskjerm, der flaten er stor og rullbar.
-  const total = Math.max(460, Math.min(NATIV ? 2100 : 1200, 150 * RINGER));
+  const total = Math.max(460, Math.min(NATIV ? 1700 : 1200, 150 * RINGER));
   const RR = [R0];
   for (let g = 1; g <= RINGER; g++) RR.push(RR[g-1] + total * vekt[g-1] / sum);
   const RMAX = RR[RINGER], MARG = 34;
@@ -520,7 +524,33 @@ function synligTekst() {
 }
 if (NATIV && window.visualViewport) {
   let vvT = 0;
-  visualViewport.addEventListener('resize', () => { clearTimeout(vvT); vvT = setTimeout(synligTekst, 180); });
+  // «Faste» felt er festet til LAYOUT-flaten; kniper man inn, blir de stående
+  // utenfor synsfeltet — søket «forsvant». Her festes topplinjen til synsfeltets
+  // overkant og kortet til underkanten, uansett zoom.
+  const fest = () => {
+    const v = visualViewport, sN = 1 / v.scale;
+    const hd = document.querySelector('header');
+    if (v.scale < 1.01) {
+      // uknepet: la de faste feltene være helt i fred
+      hd.style.transform = ''; hd.style.width = '';
+      const p0 = document.getElementById('panel');
+      p0.style.transform = ''; p0.style.width = ''; p0.style.maxHeight = '';
+      return;
+    }
+    hd.style.transformOrigin = '0 0';
+    hd.style.transform = `translate(${v.offsetLeft}px, ${v.offsetTop}px) scale(${sN})`;
+    hd.style.width = (v.width * v.scale) + 'px';
+    const pn = document.getElementById('panel');
+    pn.style.transformOrigin = '0 100%';
+    const ekstra = pn.classList.contains('åpen') ? '' : ' translateY(105%)';
+    pn.style.transform = `translate(${v.offsetLeft}px, ${v.offsetTop + v.height - innerHeight}px) scale(${sN})`+ekstra;
+    pn.style.width = (v.width * v.scale) + 'px';
+    pn.style.maxHeight = (v.height * v.scale * 0.62) + 'px';
+  };
+  visualViewport.addEventListener('scroll', fest, {passive:true});
+  visualViewport.addEventListener('resize', () => { fest(); clearTimeout(vvT); vvT = setTimeout(synligTekst, 180); });
+  fest();
+  new MutationObserver(fest).observe(document.getElementById('panel'), {attributes:true, attributeFilter:['class']});
 }
 addEventListener('resize', () => { plasserDuk(); sistE = -1; bruk(); });
 new ResizeObserver(() => { sistE = -1; bruk(); }).observe(duk);
@@ -636,15 +666,15 @@ function tilpass() {
   if (NATIV) {
     // nativ mobil: ingen transform — siden selv ruller. Midtstill på personen nederst.
     sk = mSk = 1; tx = mTx = 0; ty = mTy = 0; bruk(); synligTekst();
-    // Rull inn så midtpersonen står i synsfeltet — nettleseren regner selv.
-    // Oppstartsbilder og overlegg kan nullstille rullingen, derfor ett gjensyn.
-    const midtstill = () => {
-      const m = duk.querySelector('.midtn');
-      if (m) m.scrollIntoView({block: 'center', inline: 'center'});
-    };
-    requestAnimationFrame(midtstill);
-    // rulleren er BODY-elementet (html/body har fast høyde) — mål der
-    setTimeout(() => { if (Math.max(scrollX, document.body.scrollLeft) < 50) midtstill(); }, 600);
+    // Rull inn så midtpersonen står i synsfeltet — nøyaktig ÉN gang per visning,
+    // ellers rykker bildet fram og tilbake ved oppstart.
+    if (!tilpass._sentrert) {
+      tilpass._sentrert = true;
+      requestAnimationFrame(() => {
+        const m = duk.querySelector('.midtn');
+        if (m) m.scrollIntoView({block: 'center', inline: 'center'});
+      });
+    }
     return;
   }
   if (erSmal()) {
