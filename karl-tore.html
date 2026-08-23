@@ -293,10 +293,10 @@ function erSmal() { return PEKEGROV || innerWidth < 700 || innerHeight < 500; }
 const PEKEGROV = matchMedia('(pointer: coarse)').matches;
 // På berøringsskjerm styrer TELEFONEN selv: vanlig rulling og nettleserens egen
 // knip-zoom. All egen fingerstyring (pan/knip/dobbelttrykk) gjelder bare mus/PC.
-const NATIV = PEKEGROV;
+const NATIV = false;   // nativ-forsøket avviklet 23.08.2026 — fast tavle overalt
 if (NATIV) document.documentElement.classList.add('nativ');
 // nativ: ett trykk på et felt åpner kortet — resten gjør telefonen
-let RINGER = NATIV ? MAXGEN : (erSmal() ? 5 : 6), ROT = 1, valgt = null;
+let RINGVALG = erSmal() ? 5 : 6, RINGER = RINGVALG, ROT = 1, valgt = null;
 const BUNN = 96;   // luft under vifta i tavleenheter — holder ytterste ring klar av tegnforklaringa
 let sk = 1, tx = 0, ty = 0;                      // zoom og panorering
 document.body.classList.add('js');
@@ -359,7 +359,7 @@ function fyll(k, g) {
   let f = k; while (f >= 4) f = Math.floor(f / 2);
   const kj = (f === 2);
   // Blekningen var stemt for seks ringer; med tolv ble ytterkanten helt hvit.
-  const t = Math.min(g / (NATIV ? 17 : RINGER), 1);
+  const t = Math.min(g / Math.max(RINGER + 3, 9), 1);
   return kj ? `hsl(207 ${32 - 17 * t}% ${88 + 8 * t}%)`    // farsslekten, dempet blågrå
             : `hsl(19 ${40 - 22 * t}% ${90 + 6 * t}%)`;   // morsslekten, varm terrakotta
 }
@@ -370,10 +370,10 @@ function tegn() {
   const vekt = []; let sum = 0;
   // Kvadratisk dybdevekst gjorde de ytterste feltene til lange smale «tarmer»
   // når hele rekken tegnes. På berøringsskjerm vokser dybden bare svakt.
-  for (let g = 1; g <= RINGER; g++) { const v = NATIV ? (0.85 + 0.05 * g) : (0.6 + 0.045 * g * g); vekt.push(v); sum += v; }
+  for (let g = 1; g <= RINGER; g++) { const v = RINGER > 8 ? (0.85 + 0.05 * g) : (0.6 + 0.045 * g * g); vekt.push(v); sum += v; }
   // Med hele anerekken tegnet trenger de ytterste ringene rom — taket løftes
   // på berøringsskjerm, der flaten er stor og rullbar.
-  const total = Math.max(460, Math.min(NATIV ? 1700 : 1200, 150 * RINGER));
+  const total = Math.max(460, Math.min(RINGER > 8 ? 1700 : 1200, 150 * RINGER));
   const RR = [R0];
   for (let g = 1; g <= RINGER; g++) RR.push(RR[g-1] + total * vekt[g-1] / sum);
   const RMAX = RR[RINGER], MARG = 34;
@@ -510,6 +510,7 @@ function tegn() {
     }
   }
   tilpass();
+  plasstekst();
 }
 // NATIV: alle anene er tegnet hele tiden — teksten i et felt vises først når
 // feltet er bredt nok til å leses, målt mot telefonens egen zoom (visualViewport).
@@ -646,7 +647,31 @@ function ramme() {
   bruk();
   if (rører) requestAnimationFrame(ramme); else løper = false;
 }
-function kjør() { if (!løper) { løper = true; requestAnimationFrame(ramme); } }
+// LEDDENE ÅPENBARER SEG (KTØs endelige form 23.08.2026): tavlen står fast, zoomen
+// er egen og skarp, og når bevegelsen faller til ro foldes dypere ringer ut. Navn
+// vises BARE der feltet har målt plass på skjermen — derfor aldri rot eller
+// overlapp, og feltene vokser når man går innover.
+let ringerTimer = 0;
+function ringmål() {
+  const trinn = mSk < 2 ? 0 : mSk < 3.2 ? 1 : mSk < 5 ? 2 : mSk < 7.5 ? 3 : mSk < 11 ? 4 : 6;
+  return Math.min(MAXGEN, RINGVALG + trinn);
+}
+function plasstekst() {
+  const u = boks().u * mSk;
+  duk.querySelectorAll('g.tx[data-bue]').forEach(gg => {
+    gg.style.visibility = (+gg.dataset.bue * u > 28) ? '' : 'hidden';
+  });
+}
+function autoRinger() {
+  clearTimeout(ringerTimer);
+  ringerTimer = setTimeout(() => {
+    if (pekere.size) { autoRinger(); return; }
+    const ny = ringmål();
+    if (ny !== RINGER) { RINGER = ny; tegn(); }
+    plasstekst();
+  }, 200);
+}
+function kjør() { autoRinger(); if (!løper) { løper = true; requestAnimationFrame(ramme); } }
 const hode = document.querySelector('header');
 function plasserDuk() {
   if (NATIV) { duk.style.top=''; duk.style.height=''; return; }
@@ -1228,7 +1253,7 @@ sok.addEventListener('input', () => {
         .some(a => a.trim() === tall)).slice(0, 30)
     : Object.values(P).filter(p => p.navn.toLowerCase().includes(q)).slice(0, 30);
   treff.innerHTML = t.map(p =>
-    `<div onclick="gaTil('${p.pid}');treff.style.display='none';sok.value='';">
+    `<div onclick="sok.blur();gaTil('${p.pid}');treff.style.display='none';sok.value='';">
       <b>${esc(p.navn)}</b><span>${esc(p.lev)}${
         slektskap(p.anenr, p.kj) ? ' · ' + esc(slektskap(p.anenr, p.kj)) : ''}</span></div>`).join('')
     || '<div class="pmeta" style="padding:10px 13px">Ingen treff</div>';
@@ -1249,9 +1274,9 @@ const rv = document.getElementById('ringvalg');
 [4,5,6,7,8].forEach(n => {
   const b = document.createElement('button');
   b.textContent = n; b.title = n + ' generasjoner';
-  b.onclick = () => { RINGER = n; [...rv.children].forEach(c =>
-    c.classList.toggle('på', +c.textContent === n)); tegn(); };
-  if (n === RINGER) b.classList.add('på');
+  b.onclick = () => { RINGVALG = n; [...rv.children].forEach(c =>
+    c.classList.toggle('på', +c.textContent === n)); RINGER = ringmål(); tegn(); plasstekst(); };
+  if (n === RINGVALG) b.classList.add('på');
   rv.appendChild(b);
 });
 document.getElementById('tilbakeknapp').style.display = 'none';
