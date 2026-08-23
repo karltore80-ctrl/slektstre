@@ -908,6 +908,11 @@ function vis(id, k) {
   // Barnelista hører til BEGGE foreldrene, ikke bare til det barnet som tilfeldigvis
   // har fortellingen. Her vises den på farens og morens kort med samme innhold.
   for (const b of (id===SLOT[1] ? [] : (BARN[id] || []))) {
+    // Samme flokk kan stå både i personens egen fortelling og i et barns fortelling
+    // (som kopieres hit). Da vises den to ganger. Står tittelen alt i fortellingen,
+    // hoppes kopien over.
+    if (p.hist && b.med.length &&
+        p.hist.tekst.indexOf(`Barn av ${p.navn} og ${b.med.join(' og ')}`) >= 0) continue;
     // Uten den andre forelderen leste overskriften som om barna var farens alene.
     // Mangler moren, skal det STÅ at hun mangler — ikke utelates i stillhet.
     // To lister i samme kort — søsknene fra fortellingen og personens EGNE barn —
