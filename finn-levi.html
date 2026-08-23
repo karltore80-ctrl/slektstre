@@ -359,7 +359,7 @@ function fyll(k, g) {
   let f = k; while (f >= 4) f = Math.floor(f / 2);
   const kj = (f === 2);
   // Blekningen var stemt for seks ringer; med tolv ble ytterkanten helt hvit.
-  const t = Math.min(g / Math.max(RINGER + 3, 9), 1);
+  const t = Math.min(g / Math.max(RINGER + 3, 9), 0.8);
   return kj ? `hsl(207 ${32 - 17 * t}% ${88 + 8 * t}%)`    // farsslekten, dempet blågrå
             : `hsl(19 ${40 - 22 * t}% ${90 + 6 * t}%)`;   // morsslekten, varm terrakotta
 }
@@ -421,6 +421,12 @@ function tegn() {
                            fill:GRADH[p.sik]||'#999', opacity:0});
     const glans = el('path', {class:'glans', d:sektor(cx,cy,r1,r2,a1,a2)});
     grp.appendChild(sekt); grp.appendChild(stripe); grp.appendChild(glans);
+    if (g === RINGER && (p.far || p.mor)) {
+      // det finnes mer bakenfor: et lite bånd i ytterkanten sier «trykk — og
+      // sett denne i midten for å gå videre»
+      grp.appendChild(el('path', {class:'sek', d:sektor(cx,cy,r2-5,r2,a1+0.4,a2-0.4),
+        fill:'#7d97b5', opacity:0.55}));
+    }
     grp._geo = {cx, cy, r1, r2, a1, a2, sekt, stripe, glans, grunn: fyll(k,g)};
 
     if (g <= 2) {                                  // tekst følger buen
@@ -651,10 +657,13 @@ function ramme() {
 // er egen og skarp, og når bevegelsen faller til ro foldes dypere ringer ut. Navn
 // vises BARE der feltet har målt plass på skjermen — derfor aldri rot eller
 // overlapp, og feltene vokser når man går innover.
-let ringerTimer = 0;
+let ringerTimer = 0, grunnSk = 1;   // startskalaen — utfolding måles RELATIVT til den
 function ringmål() {
-  const trinn = mSk < 2 ? 0 : mSk < 3.2 ? 1 : mSk < 5 ? 2 : mSk < 7.5 ? 3 : mSk < 11 ? 4 : 6;
-  return Math.min(MAXGEN, RINGVALG + trinn);
+  const f = mSk / (grunnSk || 1);
+  const trinn = f < 1.8 ? 0 : f < 2.8 ? 1 : f < 4.2 ? 2 : f < 6.3 ? 3 : f < 9 ? 4 : 6;
+  // Åtte ringer er lesbarhetens grense i en vifte. Dypere ledd nås ved å sette
+  // anen i midten — feltene med mer bakenfor får et merke i ytterkanten.
+  return Math.min(8, MAXGEN, RINGVALG + trinn);
 }
 function plasstekst() {
   const u = boks().u * mSk;
@@ -712,10 +721,11 @@ function tilpass() {
     // Taket 3,6 lot halve skjermen stå tom på høye mobilskjermer. Vifta får
     // fylle flaten den har, uansett hvor høy den er.
     sk = mSk = Math.min(8, Math.max(1.6, Math.max((b.height - 150) / viftehøyde, fyllB)));
+    grunnSk = mSk;
     tx = mTx = (b.width / 2 - ox) / u - cx * sk;
     ty = mTy = (b.height - 96 - oy) / u - cy * sk;
   } else {
-    sk = mSk = 1; tx = mTx = 0; ty = mTy = 0;
+    sk = mSk = 1; tx = mTx = 0; ty = mTy = 0; grunnSk = 1;
   }
   bruk();
 }
