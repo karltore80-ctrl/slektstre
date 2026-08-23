@@ -586,11 +586,24 @@ function ramme() {
 // NYE LEDD ÅPENBARER SEG SELV (KTØ 24.08.2026): tallknappene setter grunnvisningen,
 // og zoomer man inn, foldes dypere ringer ut automatisk — helt til registerets bunn.
 // Trinnene er zoomterskler; tegn() kalles bare når ringtallet faktisk endres.
-function autoRinger(stille) {
+// Full omtegning MIDT I et knip kjentes som hopp og hakkete zoom. Derfor: under
+// selve fingerbevegelsen røres ingenting — de nye ringene foldes ut et øyeblikk
+// etter at fingrene slipper (eller hjulet stilner).
+let ringerTimer = 0;
+function ringmål() {
   const trinn = mSk < 2 ? 0 : mSk < 3.2 ? 1 : mSk < 5 ? 2 : mSk < 7.5 ? 3 : mSk < 11 ? 4 : 6;
-  const ny = Math.min(MAXGEN, RINGVALG + trinn);
-  if (ny !== RINGER) { RINGER = ny; if (!stille) tegn(); return true; }
-  return false;
+  return Math.min(MAXGEN, RINGVALG + trinn);
+}
+function autoRinger(nå) {
+  if (nå) { clearTimeout(ringerTimer); const ny = ringmål();
+    if (ny !== RINGER) { RINGER = ny; tegn(); } return; }
+  if (ringmål() === RINGER) return;
+  clearTimeout(ringerTimer);
+  ringerTimer = setTimeout(() => {
+    if (pekere.size) { autoRinger(); return; }   // fingrene er fortsatt nede — vent
+    const ny = ringmål();
+    if (ny !== RINGER) { RINGER = ny; tegn(); }
+  }, 240);
 }
 function kjør() { autoRinger(); if (!løper) { løper = true; requestAnimationFrame(ramme); } }
 const hode = document.querySelector('header');
@@ -1176,7 +1189,7 @@ const rv = document.getElementById('ringvalg');
   const b = document.createElement('button');
   b.textContent = n; b.title = n + ' generasjoner';
   b.onclick = () => { RINGVALG = n; [...rv.children].forEach(c =>
-    c.classList.toggle('på', +c.textContent === n)); RINGER = n; autoRinger(true); tegn(); };
+    c.classList.toggle('på', +c.textContent === n)); RINGER = 0; autoRinger(true); };
   if (n === RINGVALG) b.classList.add('på');
   rv.appendChild(b);
 });
