@@ -441,13 +441,18 @@ function tegn() {
       const rader = [(p.fn + ' ' + p.en).trim(), p.lev].filter(Boolean);
       const ned = midt > 90 && midt < 270;
       rader.forEach((s2, i) => {
-        const rr = ned ? r1 + 26 + i * 20 : r2 - 26 - i * 20;
+        // navnet legges MIDT i ringens dybde — ikke klemt mot en kant
+        const midr = (r1 + r2) / 2;
+        const rr = ned ? (i === 0 ? midr - 6 : midr + 15) : (i === 0 ? midr + 7 : midr - 14);
         const bid = `b${k}_${i}`;
         const [xa,ya] = pol(cx,cy,rr, ned ? midt + br/2 - 1.4 : midt - br/2 + 1.4);
         const [xb,yb] = pol(cx,cy,rr, ned ? midt - br/2 + 1.4 : midt + br/2 - 1.4);
         defs.appendChild(el('path', {id:bid,
           d:`M ${xa} ${ya} A ${rr} ${rr} 0 0 ${ned?0:1} ${xb} ${yb}`}));
-        const fs0 = i===1 ? 11.5 : 14.5;
+        // skriften følger feltets egne mål — dyp ring gir stor skrift
+        const dyp = r2 - r1;
+        const fs0 = i===1 ? Math.max(11.5, Math.min(16, dyp * 0.105))
+                          : Math.max(14.5, Math.min(21, dyp * 0.16));
         const t = el('text', {class:(i===1?'aa tx':'tx'), 'font-size': fs0});
         t.dataset.k = k;
         const tp = el('textPath', {href:'#'+bid, startOffset:'50%','text-anchor':'middle'},
@@ -465,8 +470,16 @@ function tegn() {
             br0 = t.getComputedTextLength();
           }
           if (br0 > bue) {
-            tp.setAttribute('textLength', bue.toFixed(1));
-            tp.setAttribute('lengthAdjust', 'spacingAndGlyphs');
+            // gulvet: klem høyst 15 %. Rekker ikke det, kortes navnet pent.
+            let s3 = s2;
+            while (s3.length > 4 && t.getComputedTextLength() > bue / 0.85) {
+              s3 = s3.slice(0, -1);
+              tp.textContent = s3.replace(/[ ,.]+$/, '') + '…';
+            }
+            if (t.getComputedTextLength() > bue) {
+              tp.setAttribute('textLength', bue.toFixed(1));
+              tp.setAttribute('lengthAdjust', 'spacingAndGlyphs');
+            }
           } else {
             // Ingen tvungen bredde ⇒ raden har luft, og skriften kan følge zoomen.
             t.dataset.fs = t.getAttribute('font-size');
@@ -484,8 +497,10 @@ function tegn() {
       const plass = r2 - r1 - 22;   // gruppa ligger på r1+10, teksten starter 8 lenger ut
       const anker = snu ? 'end' : 'start', x0 = snu ? -8 : 8;
       const helt = (p.fn + ' ' + p.en).trim();
-      const linjer = tykk0 > 30 ? [[helt, 12.5, -2], [p.lev, 10.5, 11]]
-                    : tykk0 > 19 ? [[helt, 11.5, 3]]
+      // skriften vokser med feltet: bred bue gir stor skrift, trang gir liten
+      const fsN = Math.max(10.5, Math.min(19, tykk0 * 0.42));
+      const linjer = tykk0 > 30 ? [[helt, fsN, -fsN * 0.18], [p.lev, fsN * 0.8, fsN * 0.82]]
+                    : tykk0 > 19 ? [[helt, Math.min(fsN, 13.5), 3]]
                     :             [[helt, 11, 3]];
       grp.appendChild(gg);          // MÅ stå i dokumentet før teksten kan måles
       // Hele navnet står på én rad. Passer det ikke i ringens dybde, krympes skriften
@@ -501,11 +516,11 @@ function tegn() {
         let bredde = te.getComputedTextLength();
         if (!bredde) return;
         if (bredde > plass) {
-          const ny = Math.max(fs * 0.78, fs * plass / bredde);
+          const ny = Math.max(fs * 0.6, fs * plass / bredde);
           te.setAttribute('font-size', ny.toFixed(2));
           bredde = te.getComputedTextLength();
         }
-        const tak = plass / 0.62;                 // maks 38 % sammenklemming
+        const tak = plass / 0.85;                 // GULV: aldri mer enn 15 % klemming
         if (bredde > tak) {
           let s2 = t;
           while (s2.length > 3 && te.getComputedTextLength() > tak) {
