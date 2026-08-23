@@ -664,7 +664,8 @@ function ramme() {
 // er egen og skarp, og når bevegelsen faller til ro foldes dypere ringer ut. Navn
 // vises BARE der feltet har målt plass på skjermen — derfor aldri rot eller
 // overlapp, og feltene vokser når man går innover.
-let ringerTimer = 0, grunnSk = 1, beholdUtsnitt = false, sistPlass = 0;   // startskalaen — utfolding måles RELATIVT til den
+let ringerTimer = 0, grunnSk = 1, beholdUtsnitt = false, sistPlass = 0;
+let rotstakk = [];   // veien man har gått innover, så utzooming går samme vei hjem   // startskalaen — utfolding måles RELATIVT til den
 function ringmål() {
   const f = mSk / (grunnSk || 1);
   const trinn = f < 1.8 ? 0 : f < 2.8 ? 1 : f < 4.2 ? 2 : f < 6.3 ? 3 : f < 9 ? 4 : 6;
@@ -682,6 +683,23 @@ function autoRinger() {
   clearTimeout(ringerTimer);
   ringerTimer = setTimeout(() => {
     if (pekere.size) { autoRinger(); return; }
+    const f = mSk / (grunnSk || 1);
+    // TAVLEN GÅR MED (KTØ 23.08.2026): presser man zoomen dypt inn mot en gren,
+    // trår tavlen et steg bakover — anen i synsfeltets midte settes i sentrum,
+    // og alt der får full størrelse. Zoomer man helt ut igjen, trår den hjem.
+    if (f > 4.6) {
+      const e = document.elementFromPoint(innerWidth / 2, innerHeight * 0.45);
+      const m = e && e.closest ? e.closest('[data-pid]') : null;
+      if (m && m.dataset.pid !== SLOT[ROT]) {
+        rotstakk.push(SLOT[ROT]);
+        settSentrum(m.dataset.pid);
+        return;
+      }
+    }
+    if (f < 0.62 && rotstakk.length) {
+      settSentrum(rotstakk.pop());
+      return;
+    }
     const ny = ringmål();
     if (ny !== RINGER) { RINGER = ny; beholdUtsnitt = true; tegn(); beholdUtsnitt = false; }
     plasstekst();
