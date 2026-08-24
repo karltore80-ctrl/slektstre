@@ -402,17 +402,31 @@ function passerFs(s, plass) { const w = bredde100(s); return w > 0 ? plass * 100
 // CSS slår presentasjonsattributter: skriftstørrelsen må settes i stilen,
 // ellers vinner .aa {font-size:11.5px} og årstallene blir stående like store overalt.
 function settFs(e, fs) { e.style.fontSize = fs.toFixed(2) + 'px'; }
-// deler et navn i to omtrent like lange rader — aldri midt i et ord
-function todel(s) {
+// deler et navn i n omtrent like lange rader — aldri midt i et ord
+function delOpp(s, n) {
   const ord = s.split(' ');
-  if (ord.length < 2) return null;
-  let best = 1, avvik = 1e9;
-  for (let i = 1; i < ord.length; i++) {
-    const d = Math.abs(bredde100(ord.slice(0,i).join(' ')) - bredde100(ord.slice(i).join(' ')));
-    if (d < avvik) { avvik = d; best = i; }
-  }
-  return [ord.slice(0,best).join(' '), ord.slice(best).join(' ')];
+  if (ord.length < n) return null;
+  if (n === 1) return [s];
+  // Alle måter å dele på prøves, og den som gir SMALEST bredeste rad vinner. En
+  // grådig deling ga «Johanne Pedersdatter» på én rad og «Berget» på neste — den
+  // første raden ble da for lang og navnet endte likevel i «…».
+  let best = null, bestB = 1e9;
+  const gå = (i, rader) => {
+    if (rader.length === n - 1) {
+      const siste = ord.slice(i).join(' ');
+      if (!siste) return;
+      const alle = rader.concat([siste]);
+      const b = Math.max(...alle.map(bredde100));
+      if (b < bestB) { bestB = b; best = alle; }
+      return;
+    }
+    for (let j = i + 1; j <= ord.length - (n - rader.length - 1); j++)
+      gå(j, rader.concat([ord.slice(i, j).join(' ')]));
+  };
+  gå(0, []);
+  return best;
 }
+function todel(s) { return delOpp(s, 2); }
 // Passer ikke raden likevel, klemmes tegnene inntil 15 %. Først når det er brukt
 // opp, kortes navnet — og da etter målt bredde, ikke etter gjettet tegnantall.
 function klem(te, lm, s, plass) {
@@ -440,9 +454,13 @@ function klem(te, lm, s, plass) {
 // den andre navneraden, og derfor slipper lange navn å bli kortet.
 const AARF = 0.8;                                  // årstallsraden i forhold til navnet
 function ringOppsett(g, r1, r2) {
-  const buet = g <= 2, N2 = Math.pow(2, g);
+  const N2 = Math.pow(2, g);
   const midr = (r1 + r2) / 2, dyp = r2 - r1;
   const bue = midr * (180 / N2 - 2.8) * Math.PI / 180;
+  // Navnet legges langs feltets LENGSTE side. Er buen videre enn ringen er dyp,
+  // følger teksten buen; ellers peker den utover. Før var dette bundet til
+  // ringnummeret, så et vidt felt kunne få teksten på tvers av sin egen lengde.
+  const buet = bue >= dyp;
   const tykk = buet ? dyp - 8 : Math.PI * midr / N2 - 5;   // rom til rader
   const plass = buet ? bue : dyp - 22;                     // lengden hver rad har
   const navn = [], aar = [];
@@ -496,19 +514,35 @@ function tegn() {
   }
   RINGER = Math.max(1, Math.min(ringmål(), dypest));
   const R0 = 86;
-  const vekt = []; let sum = 0;
-  // Kvadratisk dybdevekst gjorde de ytterste feltene til lange smale «tarmer»
-  // når hele rekken tegnes. På berøringsskjerm vokser dybden bare svakt.
-  for (let g = 1; g <= RINGER; g++) {
-    let v = RINGER > 6 ? (0.85 + 0.05 * g) : (0.6 + 0.045 * g * g);
-    if (g === RINGER && g >= 5) v *= 0.55;   // ytterste ring holdes grunn — aldri remser
-    vekt.push(v); sum += v;
+  const total = Math.max(460, Math.min(1250, 150 * RINGER));
+  // FELTENE SKAL LIGNE HVERANDRE (KTØ 24.08.2026). Dybden vokste før kvadratisk med
+  // ringnummeret, mens bredden HALVERES for hver ring. Derfor ble de innerste feltene
+  // korte og feite og de ytterste lange remser — samme tavle, to helt ulike former.
+  // Nå stemmes dybdene mot feltets egen bredde: en ring med vide felt får mer dybde,
+  // en trang ring mindre, til forholdet mellom bredde og dybde har jevnet seg ut.
+  // Utjevningen er delvis (ALFA): full utjevning ville gjort de ytterste ringene så
+  // grunne at ingen navn fikk plass. Regnestykket er en enkel gjentakelse — dybdene
+  // bestemmer radiene, radiene bestemmer breddene, breddene bestemmer dybdene igjen.
+  const ALFA = 0.45;
+  let dyb = new Array(RINGER).fill(total / RINGER);
+  for (let it = 0; it < 24; it++) {
+    const rt = [R0];
+    for (let g = 0; g < RINGER; g++) rt.push(rt[g] + dyb[g]);
+    const v = [];
+    for (let g = 1; g <= RINGER; g++)
+      v.push(Math.pow(Math.PI * ((rt[g-1] + rt[g]) / 2) / Math.pow(2, g), ALFA));
+    const sv = v.reduce((a, b) => a + b, 0);
+    dyb = dyb.map((x, i) => x * 0.5 + (v[i] / sv * total) * 0.5);   // halv vei hver gang
+    // Ingen ring får bli mer enn en tredel dypere eller en firedel grunnere enn
+    // gjennomsnittet. Uten dette spiste de innerste ringene radien, og de ytterste
+    // ble så grunne at navnene forsvant.
+    const m = total / RINGER;
+    dyb = dyb.map(x => Math.max(m * 0.75, Math.min(m * 1.3, x)));
+    const sit = dyb.reduce((a, b) => a + b, 0);
+    dyb = dyb.map(x => x * total / sit);
   }
-  // Med hele anerekken tegnet trenger de ytterste ringene rom — taket løftes
-  // på berøringsskjerm, der flaten er stor og rullbar.
-  const total = Math.max(460, Math.min(RINGER > 6 ? 1250 : 1200, 150 * RINGER));
   const RR = [R0];
-  for (let g = 1; g <= RINGER; g++) RR.push(RR[g-1] + total * vekt[g-1] / sum);
+  for (let g = 1; g <= RINGER; g++) RR.push(RR[g-1] + dyb[g-1]);
   const RMAX = RR[RINGER], MARG = 34;
   const W = (RMAX + MARG) * 2, HH = RMAX + MARG + BUNN;
   const cx = W / 2, cy = RMAX + MARG;
@@ -579,13 +613,23 @@ function tegn() {
     const helt = (p.fn + ' ' + p.en).trim();
     let navnFs = opp.fs, deler = opp.rader === 2 ? todel(helt) : null,
         medAar = opp.aar && !!p.lev;
-    if (opp.rader === 1 && passerFs(helt, opp.plass) < opp.fs * 0.85) {
-      // Dette ene navnet ville blitt kortet. Da bryter vi DET i to rader i litt
-      // mindre skrift og lar årstallet vike — et helt navn er mer verdt enn «…».
-      const d = todel(helt);
-      const f = d ? Math.min(opp.fs, opp.tykk / 2.32,
-                             passerFs(d[0], opp.plass), passerFs(d[1], opp.plass)) : 0;
-      if (f >= opp.fs * 0.7) { deler = d; navnFs = f; medAar = false; }
+    // Står navnet helt slik ringen har bestemt? Gjør det ikke det, bryter vi DETTE
+    // navnet i flere rader — to først, så tre — og lar om nødvendig skriften falle
+    // litt og årstallet vike. Et helt navn er mer verdt enn et som ender i «…».
+    const står = (d, fs) => (d || [helt]).every(t => passerFs(t, opp.plass) >= fs * 0.85);
+    if (!står(deler, navnFs)) {
+      for (const n of [2, 3]) {
+        const d = delOpp(helt, n);
+        if (!d) continue;
+        const lengst = Math.min(...d.map(t => passerFs(t, opp.plass)));
+        let tatt = false;
+        for (const aar of (medAar ? [true, false] : [false])) {
+          const f = Math.min(opp.fs, lengst,
+                             opp.tykk / ((n + (aar ? AARF : 0)) * 1.16));
+          if (f >= opp.fs * 0.66) { deler = d; navnFs = f; medAar = aar; tatt = true; break; }
+        }
+        if (tatt && står(deler, navnFs)) break;
+      }
     }
     const rader = [];
     if (deler) { rader.push([deler[0], navnFs, 0]); rader.push([deler[1], navnFs, 0]); }
