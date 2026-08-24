@@ -308,7 +308,8 @@ const PEKEGROV = matchMedia('(pointer: coarse)').matches;
 const NATIV = false;   // nativ-forsøket avviklet 23.08.2026 — fast tavle overalt
 if (NATIV) document.documentElement.classList.add('nativ');
 // nativ: ett trykk på et felt åpner kortet — resten gjør telefonen
-let RINGVALG = erSmal() ? 5 : 6, RINGER = RINGVALG, ROT = 1, valgt = null;
+let RINGVALG = 5, RINGER = RINGVALG, RFIT = 600, ROT = 1, valgt = null;
+let RINGPLAN = [], MIDT = null;      // ett tekstoppsett pr. ring, og midtpersonen
 const BUNN = 96;   // luft under vifta i tavleenheter — holder ytterste ring klar av tegnforklaringa
 let sk = 1, tx = 0, ty = 0;                      // zoom og panorering
 // Så lenge brukeren ikke selv har tatt tak i tavlen, skal den fylle flaten den
@@ -409,7 +410,7 @@ function delOpp(s, n) {
   if (n === 1) return [s];
   // Alle måter å dele på prøves, og den som gir SMALEST bredeste rad vinner. En
   // grådig deling ga «Johanne Pedersdatter» på én rad og «Berget» på neste — den
-  // første raden ble da for lang og navnet endte likevel i «…».
+  // første raden ble da for lang og navnet fikk ikke plass likevel.
   let best = null, bestB = 1e9;
   const gå = (i, rader) => {
     if (rader.length === n - 1) {
@@ -426,79 +427,76 @@ function delOpp(s, n) {
   gå(0, []);
   return best;
 }
-function todel(s) { return delOpp(s, 2); }
-// Passer ikke raden likevel, klemmes tegnene inntil 15 %. Først når det er brukt
-// opp, kortes navnet — og da etter målt bredde, ikke etter gjettet tegnantall.
-function klem(te, lm, s, plass) {
-  if (!(plass > 0)) return;
-  let w = te.getComputedTextLength();
-  if (!w || w <= plass) return;
-  if (w <= plass / 0.85) {
-    lm.setAttribute('textLength', plass.toFixed(1));
-    lm.setAttribute('lengthAdjust', 'spacingAndGlyphs');
-    return;
-  }
-  let s2 = s;
-  while (s2.length > 3 && te.getComputedTextLength() > plass) {
-    s2 = s2.slice(0, -1);
-    lm.textContent = s2.replace(/[ ,.]+$/, '') + '…';
-  }
-}
 
-// ---------- ÉN skrift per ring ----------
-// Ulik skrift fra felt til felt var det som gjorde tavlen urolig: naboer i samme
-// ring kunne stå dobbelt så store som hverandre, bare fordi navnet var kortere.
-// Nå stemmes hele ringen samlet: vi prøver de fire oppsettene (navn på én eller to
-// rader, med eller uten årstall) og velger det som gir størst skrift for ringen
-// under ett. Rommet PÅ TVERS av ringen — som før lå ubrukt — er det som bærer
-// den andre navneraden, og derfor slipper lange navn å bli kortet.
-const AARF = 0.8;                                  // årstallsraden i forhold til navnet
-function ringOppsett(g, r1, r2) {
-  const N2 = Math.pow(2, g);
-  const midr = (r1 + r2) / 2, dyp = r2 - r1;
-  const bue = midr * (180 / N2 - 2.8) * Math.PI / 180;
-  // Navnet legges langs feltets LENGSTE side. Er buen videre enn ringen er dyp,
-  // følger teksten buen; ellers peker den utover. Før var dette bundet til
-  // ringnummeret, så et vidt felt kunne få teksten på tvers av sin egen lengde.
-  const buet = bue >= dyp;
-  const tykk = buet ? dyp - 8 : Math.PI * midr / N2 - 5;   // rom til rader
-  const plass = buet ? bue : dyp - 22;                     // lengden hver rad har
-  const navn = [], aar = [];
-  for (let k = N2; k < 2 * N2; k++) {
-    const id = pid(k); if (!id) continue;
-    const p = P[id];
-    navn.push((p.fn + ' ' + p.en).trim());
-    if (p.lev) aar.push(p.lev);
-  }
-  const TAK = buet ? 22 : 19;
-  const kvant = (a) => a.length ? a.sort((x,y) => x-y)[Math.floor(a.length * 0.2)] : TAK;
-  let best = null;
-  for (const rader of [1, 2]) {
-    for (const medAar of [true, false]) {
-      if (medAar && !aar.length) continue;
-      const h = tykk / (rader * 1.16 + (medAar ? AARF * 1.16 : 0));
-      // fire av fem navn skal stå helt uten klemming; det lengste femtedelen
-      // klemmes litt — det synes langt mindre enn ulik skriftstørrelse.
-      let w = kvant(navn.map(s => {
-        const d = rader === 2 ? todel(s) : null;
-        return d ? Math.min(passerFs(d[0], plass), passerFs(d[1], plass))
-                 : passerFs(s, plass);
-      }));
-      if (medAar) w = Math.min(w, kvant(aar.map(s => passerFs(s, plass) / AARF)));
-      const fs = Math.min(TAK, h, w);
-      // Et navn som må kortes, teller tungt imot oppsettet: heller en litt mindre
-      // skrift på to rader enn et navn som ender i «…».
-      const kuttet = navn.filter(s => {
-        const d = rader === 2 ? todel(s) : null;
-        const f = d ? Math.min(passerFs(d[0], plass), passerFs(d[1], plass))
-                    : passerFs(s, plass);
-        return f < fs * 0.85;
-      }).length / Math.max(1, navn.length);
-      const verdi = fs * (medAar ? 1.06 : 1) * (rader === 1 ? 1.03 : 1) * (1 - 0.8 * kuttet);
-      if (!best || verdi > best.verdi) best = {rader, aar: medAar, fs, verdi};
+// ---------- ÉN FAST TEKSTSTØRRELSE (KTØ 24.08.2026) ----------
+// Navnene står LIKE STORE overalt: samme ring eller ikke, kort navn eller langt,
+// og de endrer seg aldri når du zoomer. Teksten måles i skjermpiksler, ikke i
+// tavlens eget mål — det er FELTET som vokser når du zoomer, og navnet kommer til
+// syne i det øyeblikket feltet er blitt stort nok til å bære det. Derfor finnes
+// hverken krympet skrift eller avkortede navn lenger: et navn står helt, eller det
+// venter til du har zoomet nærmere. Feltene selv gjør det samme — hele anerekka er
+// tegnet, og ringene kommer til syne utover etter hvert som de blir brede nok.
+const TEKST = 15, AARF = 0.78, LINJE = 1.16;
+const VIS_FELT = 6;          // px bred sektor før feltet i det hele tatt tegnes
+
+// HELE RINGEN OM GANGEN (KTØ 24.08.2026): valget av oppsett tas for RINGEN, ikke
+// for hvert felt. Ellers dukket navnene opp ett og ett — de korteste først — og
+// ringen så halvferdig ut mens du zoomet. Nå må oppsettet romme det LENGSTE navnet
+// i ringen; da kommer hele anerekka fram samlet, i samme øyeblikk.
+// Bredder måles én gang, i skjermpiksler ved TEKST. Ved zoom er valget bare en
+// sammenlikning av tall — ingenting måles på nytt, ingenting tegnes om.
+function ringplan(g, r1, r2) {
+  const midr = (r1 + r2) / 2, dyp = r2 - r1, bg = 180 / Math.pow(2, g);
+  const korde = 2 * midr * Math.sin(bg * Math.PI / 360);
+  // Navnet legges langs feltets lengste side: på tvers når feltet er bredere enn
+  // dypt, ellers utover. Luften rundt er en ANDEL av feltet — en fast marg spiste
+  // hele feltet i de ytterste ringene, og navnene der kunne aldri komme fram.
+  const tang = korde >= dyp, langs = tang ? korde : dyp, tvers = tang ? dyp : korde;
+  return {tang, midr,
+          plass: langs - Math.min(14, langs * 0.12),
+          tykk: tvers - Math.min(9, tvers * 0.16),
+          felt: [], bredde: [0, 0, 0, 0], aarbredde: 0, harAar: false, valg: null};
+}
+// bredden navnet trenger på høyst n rader, i skjermpiksler ved TEKST
+function delbredder(navn) {
+  const ut = {del: {}, br: {}};
+  let best = Infinity;
+  for (let n = 1; n <= 3; n++) {
+    const d = delOpp(navn, n);
+    if (d) {
+      const b = Math.max(...d.map(bredde100)) * TEKST / 100;
+      if (b < best) { best = b; ut.del[n] = d; }
     }
+    if (!ut.del[n]) ut.del[n] = ut.del[n-1] || [navn];
+    ut.br[n] = best === Infinity ? bredde100(navn) * TEKST / 100 : best;
   }
-  return {buet, tykk, rader: best.rader, aar: best.aar, fs: Math.max(3, best.fs), plass};
+  return ut;
+}
+// oppsettene ringen kan velge mellom, best først
+function ringvalg(rp) {
+  const ut = [];
+  for (let n = 1; n <= 3; n++) {
+    const h = n * LINJE * TEKST;
+    if (rp.harAar) ut.push({n, aar: true, br: Math.max(rp.bredde[n], rp.aarbredde),
+                            h: h + AARF * LINJE * TEKST});
+    ut.push({n, aar: false, br: rp.bredde[n], h});
+  }
+  return ut;
+}
+function byggRader(gg, k) {
+  while (gg.firstChild) gg.removeChild(gg.firstChild);
+  const rader = gg._del[k.n].map(s => [s, TEKST, 0]);
+  if (k.aar && gg._lev) rader.push([gg._lev, TEKST * AARF, 1]);
+  const høyder = rader.map(r => r[1] * LINJE);
+  const HT = høyder.reduce((a, b) => a + b, 0);
+  let løp = 0;
+  rader.forEach(([s, fs, aar], i) => {
+    const y = -HT / 2 + løp + høyder[i] / 2 + fs * 0.35; løp += høyder[i];
+    const te = el('text', {'text-anchor':'middle', x:0, y:y.toFixed(2),
+                           class: aar ? 'aa' : ''}, s);
+    settFs(te, fs);
+    gg.appendChild(te);
+  });
 }
 
 function tegn() {
@@ -507,14 +505,19 @@ function tegn() {
   // forfedre i midten, ble ringene bakenfor stående tomme og likevel like brede —
   // hele vifta krympet da ned i et hjørne med halve skjermen tom. Nå tegnes bare
   // så mange ringer som det faktisk finnes aner til.
+  // HELE ANEREKKA TEGNES (KTØ 24.08.2026): alle ledd vi har navn på ligger på
+  // tavlen hele tiden, ikke bare de fire-fem innerste. Ringene bakover kommer til
+  // syne av seg selv etter hvert som du zoomer inn og feltene blir brede nok —
+  // ingenting tegnes om, ingenting flytter seg. Ringvalget i topplinjen sier bare
+  // hvor mye som skal fylle skjermen når du starter eller trykker «Hele tavlen».
   let dypest = 1;
-  for (let g = 1; g <= Math.min(ringmål(), MAXGEN); g++) {
+  for (let g = 1; g <= MAXGEN; g++) {
     const N0 = Math.pow(2, g);
     for (let k = N0; k < 2 * N0; k++) if (pid(k)) { dypest = g; break; }
   }
-  RINGER = Math.max(1, Math.min(ringmål(), dypest));
+  RINGER = Math.max(1, dypest);
   const R0 = 86;
-  const total = Math.max(460, Math.min(1250, 150 * RINGER));
+  const total = Math.max(460, 132 * RINGER);
   // FELTENE SKAL LIGNE HVERANDRE (KTØ 24.08.2026). Dybden vokste før kvadratisk med
   // ringnummeret, mens bredden HALVERES for hver ring. Derfor ble de innerste feltene
   // korte og feite og de ytterste lange remser — samme tavle, to helt ulike former.
@@ -543,6 +546,11 @@ function tegn() {
   }
   const RR = [R0];
   for (let g = 1; g <= RINGER; g++) RR.push(RR[g-1] + dyb[g-1]);
+  // Ringvalget rammer inn: så mange ringer skal fylle skjermen ved oppstart.
+  // Resten av tavlen ligger utenfor og kommer til syne når du zoomer.
+  RFIT = RR[Math.max(1, Math.min(RINGVALG, RINGER))];
+  RINGPLAN = [];
+  for (let g = 1; g <= RINGER; g++) RINGPLAN[g] = ringplan(g, RR[g-1], RR[g]);
   const RMAX = RR[RINGER], MARG = 34;
   const W = (RMAX + MARG) * 2, HH = RMAX + MARG + BUNN;
   const cx = W / 2, cy = RMAX + MARG;
@@ -557,9 +565,6 @@ function tegn() {
       d:`M ${ax} ${ay} A ${RR[g]} ${RR[g]} 0 0 1 ${bx} ${by}`}));
   }
 
-  const RINGOPP = [];
-  for (let g = 1; g <= RINGER; g++) RINGOPP[g] = ringOppsett(g, RR[g-1], RR[g]);
-
   const N = Math.pow(2, RINGER + 1);
   for (let k = 1; k < N; k++) {
     const id = pid(k); if (!id) continue;
@@ -573,16 +578,16 @@ function tegn() {
       grp.appendChild(el('path', {class:'sek grn',
         d:`M ${ax} ${ay} A ${R0} ${R0} 0 0 1 ${bx} ${by} Z`,
         fill:'#fff', stroke:'#dfe4ea','stroke-width':1.4}));
-      // midtpersonen skal stå HELT innenfor sirkelen — lange navn krympes,
-      // og begge navneradene holder samme størrelse
-      const bm = R0 * 1.52;
-      const fsm = Math.min(20, passerFs(p.fn, bm), p.en ? passerFs(p.en, bm) : 99);
-      const t1 = el('text', {class:'midtn tx', x:cx, y:cy - 23 - fsm * 1.15}, p.fn);
-      const t2 = el('text', {class:'midtn tx', x:cx, y:cy-23}, p.en);
-      settFs(t1, fsm); settFs(t2, fsm);
-      const t3 = el('text', {class:'midta tx', x:cx, y:cy-4}, p.lev);
-      settFs(t3, Math.min(13, passerFs(p.lev || '', bm)));
-      grp.appendChild(t1); grp.appendChild(t2); grp.appendChild(t3);
+      // Midtpersonen følger samme regel som alle andre: samme skrift, målt i
+      // skjermpiksler. «alltid» sier at navnet i midten aldri skjules — det er
+      // den ene teksten som må stå der uansett hvor langt ut du har zoomet.
+      const gg0 = el('g', {class:'tx', id:'midttekst'});
+      const db0 = delbredder((p.fn + ' ' + p.en).trim());
+      gg0._del = db0.del; gg0._lev = p.lev;
+      gg0._anker = `translate(${cx} ${(cy - R0 * 0.42).toFixed(1)})`;
+      MIDT = {gg: gg0, plass: R0 * 1.5, tykk: R0 * 0.86, br: db0.br, harAar: !!p.lev,
+              aarbredde: p.lev ? bredde100(p.lev) * AARF * TEKST / 100 : 0};
+      grp.appendChild(gg0);
       lag.appendChild(grp);
       continue;
     }
@@ -607,73 +612,23 @@ function tegn() {
     grp._geo = {cx, cy, r1, r2, a1, a2, sekt, stripe, glans, grunn: fyll(k,g)};
 
     // ---------- teksten ----------
-    // Én skrift for hele ringen. Passer ikke navnet på én rad, brytes det i to
-    // FØR noe krympes: rommet på tvers av ringen er det vi har mest av.
-    const opp = RINGOPP[g];
-    const helt = (p.fn + ' ' + p.en).trim();
-    let navnFs = opp.fs, deler = opp.rader === 2 ? todel(helt) : null,
-        medAar = opp.aar && !!p.lev;
-    // Står navnet helt slik ringen har bestemt? Gjør det ikke det, bryter vi DETTE
-    // navnet i flere rader — to først, så tre — og lar om nødvendig skriften falle
-    // litt og årstallet vike. Et helt navn er mer verdt enn et som ender i «…».
-    const står = (d, fs) => (d || [helt]).every(t => passerFs(t, opp.plass) >= fs * 0.85);
-    if (!står(deler, navnFs)) {
-      for (const n of [2, 3]) {
-        const d = delOpp(helt, n);
-        if (!d) continue;
-        const lengst = Math.min(...d.map(t => passerFs(t, opp.plass)));
-        let tatt = false;
-        for (const aar of (medAar ? [true, false] : [false])) {
-          const f = Math.min(opp.fs, lengst,
-                             opp.tykk / ((n + (aar ? AARF : 0)) * 1.16));
-          if (f >= opp.fs * 0.66) { deler = d; navnFs = f; medAar = aar; tatt = true; break; }
-        }
-        if (tatt && står(deler, navnFs)) break;
-      }
-    }
-    const rader = [];
-    if (deler) { rader.push([deler[0], navnFs, 0]); rader.push([deler[1], navnFs, 0]); }
-    else rader.push([helt, navnFs, 0]);
-    if (medAar) rader.push([p.lev, opp.fs * AARF, 1]);
-    // radene sentreres om ringens midtdybde
-    const høyder = rader.map(r => r[1] * 1.16);
-    const HT = høyder.reduce((a, b) => a + b, 0);
-    let løp = 0;
-    const yr = rader.map((r, i) => {
-      const y = -HT / 2 + løp + høyder[i] / 2 + r[1] * 0.35; løp += høyder[i]; return y;
-    });
+    // Feltet melder navnet sitt inn i ringens plan; oppsettet velges for hele
+    // ringen først når zoomen er kjent.
+    const rp = RINGPLAN[g], snu = midt < 0;
+    const [txp, typ] = pol(cx, cy, rp.midr, midt);
     const gg = el('g', {class:'tx'});
-    gg.dataset.px = opp.fs.toFixed(2);          // ringens skrift styrer synligheten
-    grp.appendChild(gg);                        // MÅ stå i dokumentet før måling
-
-    if (opp.buet) {                             // teksten følger buen
-      const ned = midt > 90 && midt < 270, midr = (r1 + r2) / 2;
-      rader.forEach(([s2, fs, aar], i) => {
-        const rr = ned ? midr + yr[i] : midr - yr[i];
-        const bid = `b${k}_${i}`;
-        const [xa,ya] = pol(cx,cy,rr, ned ? midt + br/2 - 1.4 : midt - br/2 + 1.4);
-        const [xb,yb] = pol(cx,cy,rr, ned ? midt - br/2 + 1.4 : midt + br/2 - 1.4);
-        defs.appendChild(el('path', {id:bid,
-          d:`M ${xa} ${ya} A ${rr} ${rr} 0 0 ${ned?0:1} ${xb} ${yb}`}));
-        const t = el('text', {class: aar ? 'aa' : ''});
-        settFs(t, fs);
-        const tp = el('textPath', {href:'#'+bid, startOffset:'50%','text-anchor':'middle'}, s2);
-        t.appendChild(tp); gg.appendChild(t);
-        klem(t, tp, s2, rr * (br - 2.8) * Math.PI / 180);
-      });
-    } else {                                    // teksten peker utover
-      const snu = midt < 0, rr = r1 + 10, [x,y] = pol(cx,cy,rr,midt);
-      gg.setAttribute('transform',
-        `translate(${x} ${y}) rotate(${midt - 90 + (snu ? 180 : 0)})`);
-      const anker = snu ? 'end' : 'start', x0 = snu ? -9 : 9;
-      rader.forEach(([s2, fs, aar], i) => {
-        const te = el('text', {'text-anchor':anker, x:x0, y:yr[i].toFixed(2),
-                               class: aar ? 'aa' : ''}, s2);
-        settFs(te, fs);
-        gg.appendChild(te);
-        klem(te, te, s2, opp.plass);
-      });
+    const db = delbredder((p.fn + ' ' + p.en).trim());
+    gg._del = db.del; gg._lev = p.lev;
+    gg._anker = `translate(${txp.toFixed(1)} ${typ.toFixed(1)}) ` +
+                `rotate(${(rp.tang ? midt : midt + (snu ? 90 : -90)).toFixed(2)})`;
+    for (let n = 1; n <= 3; n++) rp.bredde[n] = Math.max(rp.bredde[n], db.br[n]);
+    if (p.lev) {
+      rp.harAar = true;
+      rp.aarbredde = Math.max(rp.aarbredde, bredde100(p.lev) * AARF * TEKST / 100);
     }
+    rp.felt.push(gg);
+    grp.appendChild(gg);
+    grp.dataset.b = (2 * rp.midr * Math.sin(br * Math.PI / 360)).toFixed(2);
   }
   // Utfolding midt i en zoom skal BEHOLDE utsnittet — å nullstille til
   // startbildet her fikk ringene til å falle tilbake («6 → 3»-hoppet).
@@ -781,18 +736,48 @@ function bruk() {
   if (Math.abs(eff - sistE) < 0.015) return;
   sistE = eff;
   let n_skjult = 0;
-  // TEKSTEN ER FAST (KTØ 24.08.2026): navnene ligger i tavlens eget mål og
-  // forstørres nøyaktig som resten når man zoomer — som på en trykt tavle.
-  // Skrift som ble motskalert under zoomen var det som fikk navnene til å
-  // krympe og vokse i utide. Det eneste zoomen avgjør nå, er OM en ring har
-  // plass til navnene sine — og hele ringen kommer og går samlet.
-  duk.querySelectorAll('[data-px]').forEach(n => {
-    const px = (+n.dataset.px) * eff;
-    const synlig = n.style.display === 'none' ? px >= 9.2 : px >= 8.2;
-    n.style.display = synlig ? '' : 'none';
-    if (!synlig) n_skjult++;
+  // Feltet først: en sektor som er smalere enn noen få piksler er bare støy, og
+  // tegnes ikke. Zoomer du innover blir den bred nok, og ringen kommer til syne.
+  duk.querySelectorAll('.ledd[data-b]').forEach(n => {
+    n.style.display = (+n.dataset.b) * eff >= VIS_FELT ? '' : 'none';
   });
-  const tekst = n_skjult ? `${n_skjult} navn er for trange — zoom inn for å se dem` : '';
+  // Så navnene: teksten er alltid TEKST piksler på skjermen. Oppsettet velges for
+  // HELE RINGEN — det må romme ringens lengste navn — og da kommer alle navnene i
+  // ringen fram i samme øyeblikk. Ingen krymping, ingen «…»: et navn står helt,
+  // eller ringen venter til feltene er store nok.
+  const sk1 = ` scale(${(1 / eff).toFixed(4)})`;
+  for (let g = 1; g <= RINGER; g++) {
+    const rp = RINGPLAN[g]; if (!rp || !rp.felt.length) continue;
+    if (!rp.valg) rp.valg = ringvalg(rp);
+    const pPx = rp.plass * eff, tPx = rp.tykk * eff;
+    let valgt = null;
+    for (const k of rp.valg) if (k.br <= pPx && k.h <= tPx) { valgt = k; break; }
+    const nøkkel = valgt ? valgt.n + (valgt.aar ? 'a' : '') : '';
+    if (!valgt) n_skjult += rp.felt.length;
+    for (const gg of rp.felt) {
+      if (!valgt) { gg.style.display = 'none'; continue; }
+      gg.style.display = '';
+      if (gg._nøkkel !== nøkkel) { gg._nøkkel = nøkkel; byggRader(gg, valgt); }
+      gg.setAttribute('transform', gg._anker + sk1);
+    }
+  }
+  if (MIDT) {                       // navnet i midten skjules aldri
+    const m = MIDT, pPx = m.plass * eff, tPx = m.tykk * eff;
+    let v = null;
+    for (let n = 1; n <= 3; n++) {
+      const h = n * LINJE * TEKST;
+      if (m.harAar && Math.max(m.br[n], m.aarbredde) <= pPx && h + AARF * LINJE * TEKST <= tPx)
+        { v = {n, aar: true}; break; }
+      if (m.br[n] <= pPx && h <= tPx) { v = {n, aar: false}; break; }
+    }
+    if (!v) v = {n: 3, aar: false};
+    const nk = 'm' + v.n + (v.aar ? 'a' : '');
+    if (m.gg._nøkkel !== nk) { m.gg._nøkkel = nk; byggRader(m.gg, v); }
+    m.gg.setAttribute('transform', m.gg._anker + sk1);
+  }
+  // Beskjeden skal si hva man KAN gjøre, ikke telle opp det man ikke ser: hele
+  // anerekka ligger på tavlen, og leddene bakover kommer til syne når man zoomer.
+  const tekst = n_skjult > 2 ? 'Zoom inn — flere ledd kommer til syne' : '';
   const sp = document.getElementById('skjult');
   if (sp) sp.textContent = tekst;
   const tr = document.getElementById('trangt');
@@ -823,13 +808,7 @@ function ramme() {
 // vises BARE der feltet har målt plass på skjermen — derfor aldri rot eller
 // overlapp, og feltene vokser når man går innover.
 let ringerTimer = 0, grunnSk = 1, beholdUtsnitt = false, sistPlass = 0;
-function ringmål() {
-  // ANTALL RINGER ER BRUKERENS VALG (KTØ 24.08.2026). Før la tavlen selv til en
-  // ring når man zoomet inn, og trakk den fra igjen når man zoomet ut — det var
-  // dét som fikk en hel ring til å forsvinne midt i en bevegelse. Nå står
-  // ringtallet stille til man selv trykker på et annet tall.
-  return Math.min(MAXGEN, RINGVALG);
-}
+function ringmål() { return Math.min(MAXGEN, RINGVALG); }
 function plasstekst() { sistE = -1; bruk(); }
 function autoRinger() {
   clearTimeout(ringerTimer);
@@ -881,32 +860,34 @@ function tilpass() {
     }
     return;
   }
+  // Utsnittet regnes fra RFIT — radien til de ringene ringvalget rammer inn.
+  // Hele tavlen er tegnet, men det er disse som skal fylle skjermen.
+  const rad = (RFIT + 26) * u;                    // ringenes radius på skjermen ved sk = 1
   if (erSmal()) {
-    // probanden nederst, og vifta så stor at den fyller skjermhøyden
-    const viftehøyde = (vb.height - BUNN - 76) * u;               // viftas høyde på skjermen ved sk=1
-    // Stående: fyll høyden. Liggende: høydetilpasning ga et frimerke midt på
-    // skjermen med døde marger — der skal vifta fylle bredden i stedet, og
-    // toppen får heller stikke utenfor til man panorerer.
-    const fyllB = (b.width * 0.98) / (vb.width * u);
-    // Taket 3,6 lot halve skjermen stå tom på høye mobilskjermer. Vifta får
-    // fylle flaten den har, uansett hvor høy den er.
-    sk = mSk = Math.min(8, Math.max(1.6, Math.max((b.height - 150) / viftehøyde, fyllB)));
+    // probanden nederst, og de valgte ringene så store at de fyller flaten
+    const høy = (b.height - 128) / rad, bred = (b.width * 0.99) / (2 * rad);
+    sk = mSk = Math.max(0.1, Math.max(høy, bred));
     grunnSk = mSk;
     tx = mTx = (b.width / 2 - ox) / u - cx * sk;
-    ty = mTy = (b.height - 96 - oy) / u - cy * sk;
+    ty = mTy = (b.height - 104 - oy) / u - cy * sk;
   } else {
-    sk = mSk = 1; tx = mTx = 0; ty = mTy = 0; grunnSk = 1;
+    const høy = (b.height - 132) / rad, bred = (b.width * 0.96) / (2 * rad);
+    sk = mSk = Math.max(0.1, Math.min(høy, bred));
+    grunnSk = mSk;
+    tx = mTx = (b.width / 2 - ox) / u - cx * sk;
+    ty = mTy = (b.height - 92 - oy) / u - cy * sk;
   }
   bruk();
 }
 function zoomMot(klientX, klientY, faktor) {
   const {b, u, ox, oy} = boks();
   const mx = (klientX - b.left - ox) / u, my = (klientY - b.top - oy) / u;
-  // Taket 4,5x var satt for PC. På liten flate starter vifta alt på opptil 3,6x
-  // for å fylle skjermen, så det var nesten ingen zoom igjen — de ytterste
-  // ringene kunne aldri leses. Der får zoomen gå til 20x.
+  // Zoomen måles mot STARTBILDET, ikke mot tavlens eget mål: hele anerekka er
+  // tegnet, og de innerste ringene fyller skjermen ved start. Skal de ytterste
+  // leddene nås, må zoomen gå langt — derfor 80 ganger startbildet.
   egetUtsnitt = true;
-  const ny = Math.min(erSmal() ? 20 : 6, Math.max(.6, mSk * faktor));
+  const g0 = grunnSk || 1;
+  const ny = Math.min(g0 * 80, Math.max(g0 * 0.25, mSk * faktor));
   mTx = mx - (mx - mTx) * (ny / mSk); mTy = my - (my - mTy) * (ny / mSk); mSk = ny;
   kjør();
 }
@@ -1380,17 +1361,15 @@ function nullstill() {
   lukk();
   egetUtsnitt = true;
   if (NATIV) { tilpass(); return; }
+  // «Hele tavlen» viser hele anerekka — alle ringene vi har navn til, midtstilt
+  // og så stor som flaten tillater. Navnene i de ytterste ringene er da for små
+  // til å vises; de kommer tilbake når du zoomer inn.
   const {b, vb, u, ox, oy} = boks();
-  if (erSmal()) {
-    // «Hele tavlen» skal vise HELE tavlen — midtstilt og så stor som flaten
-    // tillater. Før la den seg som et frimerke nede i kanten med to tredeler av
-    // skjermen tom, og det var ingen måte å se helheten på.
-    const hh = vb.height - BUNN;                 // vifta uten lufta under
-    mSk = Math.max(.6, Math.min((b.width * .98) / (vb.width * u),
-                                (b.height * .94) / (hh * u)));
-    mTx = (b.width / 2 - ox) / u - mSk * vb.width / 2;
-    mTy = (b.height / 2 - oy) / u - mSk * hh / 2;
-  } else { mSk = 1; mTx = 0; mTy = 0; }
+  const hh = vb.height - BUNN;
+  mSk = Math.max(.1, Math.min((b.width * .98) / (vb.width * u),
+                              (b.height * .94) / (hh * u)));
+  mTx = (b.width / 2 - ox) / u - mSk * vb.width / 2;
+  mTy = (b.height / 2 - oy) / u - mSk * hh / 2;
   kjør();
 }
 addEventListener('keydown', e => { if (e.key === '0') nullstill(); });
