@@ -437,7 +437,7 @@ function delOpp(s, n) {
 // hverken krympet skrift eller avkortede navn lenger: et navn står helt, eller det
 // venter til du har zoomet nærmere. Feltene selv gjør det samme — hele anerekka er
 // tegnet, og ringene kommer til syne utover etter hvert som de blir brede nok.
-const TEKST = 15, AARF = 0.78, LINJE = 1.16;
+const TEKST = erSmal() ? 17 : 16, AARF = 0.78, LINJE = 1.16;
 const VIS_FELT = 6;          // px bred sektor før feltet i det hele tatt tegnes
 
 // HELE RINGEN OM GANGEN (KTØ 24.08.2026): valget av oppsett tas for RINGEN, ikke
@@ -886,8 +886,14 @@ function visLedd(g) {
   const r1 = GEO.RR[g-1], r2 = GEO.RR[g], midr = (r1 + r2) / 2, dyp = r2 - r1;
   // ringens dybde skal ta omtrent halve høyden; ved de innerste leddene lar vi
   // hele vifta få plass i stedet, ellers ville man stått midt oppi ett felt
-  const nySk = Math.min((b.height * 0.46) / (dyp * u),
-                        (b.height - 120) / ((r2 + 26) * u));
+  // Feltets BREDDE er det trange målet, ikke lengden: innrammingen settes derfor
+  // etter hvor bredt feltet blir på skjermen — minst førti prosent av den korteste
+  // skjermkanten. Da får navnet plass i vanlig størrelse, og heller ser man færre
+  // felt om gangen enn at teksten krymper.
+  const bredde = 2 * midr * Math.sin(Math.PI / Math.pow(2, g) / 2);
+  const nySk = Math.max((Math.min(b.width, b.height) * 0.42) / (bredde * u),
+                        Math.min((b.height * 0.46) / (dyp * u),
+                                 (b.height - 120) / ((r2 + 26) * u)));
   mSk = Math.max(0.05, nySk);
   // toppen av ringen legges midt i bildet
   mTx = (b.width / 2 - ox) / u - GEO.cx * mSk;
