@@ -310,6 +310,7 @@ if (NATIV) document.documentElement.classList.add('nativ');
 // nativ: ett trykk på et felt åpner kortet — resten gjør telefonen
 let RINGVALG = 5, RINGER = RINGVALG, RFIT = 600, ROT = 1, valgt = null;
 let RINGPLAN = [], MIDT = null;      // ett tekstoppsett pr. ring, og midtpersonen
+let GEO = null, LEDD = 0;            // geometrien, og hvilket ledd som er rammet inn
 const BUNN = 96;   // luft under vifta i tavleenheter — holder ytterste ring klar av tegnforklaringa
 let sk = 1, tx = 0, ty = 0;                      // zoom og panorering
 // Så lenge brukeren ikke selv har tatt tak i tavlen, skal den fylle flaten den
@@ -526,26 +527,19 @@ function tegn() {
   // Utjevningen er delvis (ALFA): full utjevning ville gjort de ytterste ringene så
   // grunne at ingen navn fikk plass. Regnestykket er en enkel gjentakelse — dybdene
   // bestemmer radiene, radiene bestemmer breddene, breddene bestemmer dybdene igjen.
-  const ALFA = 0.45;
-  let dyb = new Array(RINGER).fill(total / RINGER);
-  for (let it = 0; it < 24; it++) {
-    const rt = [R0];
-    for (let g = 0; g < RINGER; g++) rt.push(rt[g] + dyb[g]);
-    const v = [];
-    for (let g = 1; g <= RINGER; g++)
-      v.push(Math.pow(Math.PI * ((rt[g-1] + rt[g]) / 2) / Math.pow(2, g), ALFA));
-    const sv = v.reduce((a, b) => a + b, 0);
-    dyb = dyb.map((x, i) => x * 0.5 + (v[i] / sv * total) * 0.5);   // halv vei hver gang
-    // Ingen ring får bli mer enn en tredel dypere eller en firedel grunnere enn
-    // gjennomsnittet. Uten dette spiste de innerste ringene radien, og de ytterste
-    // ble så grunne at navnene forsvant.
-    const m = total / RINGER;
-    dyb = dyb.map(x => Math.max(m * 0.75, Math.min(m * 1.3, x)));
-    const sit = dyb.reduce((a, b) => a + b, 0);
-    dyb = dyb.map(x => x * total / sit);
-  }
+  // KVADRATISKE FELT (KTØ 24.08.2026). Antall personer dobles for hvert ledd mens
+  // radien ikke gjør det, så likt AREAL og lik FORM kan ikke oppnås samtidig i en
+  // vifte — velger man likt areal, blir de ytterste feltene strimler på 0,02 : 1.
+  // Formen er den som betyr noe når skjermen bestemmer hva du ser: derfor gjøres
+  // hvert felt like DYPT som det er BREDT. Feltets bredde ved ring g er π·r/2^g, og
+  // kravet dybde = bredde gir radien direkte: r = r(forrige) / (1 − π/2^g).
+  // For de to innerste ringene er brøken uten mening (feltene spenner 90° og 45°
+  // og er alltid brede), og der settes veksten til et fast tak i stedet.
   const RR = [R0];
-  for (let g = 1; g <= RINGER; g++) RR.push(RR[g-1] + dyb[g-1]);
+  for (let g = 1; g <= RINGER; g++) {
+    const f = 1 - Math.PI / Math.pow(2, g);
+    RR.push(f > 0.35 ? RR[g-1] / f : RR[g-1] * 2.6);
+  }
   // Ringvalget rammer inn: så mange ringer skal fylle skjermen ved oppstart.
   // Resten av tavlen ligger utenfor og kommer til syne når du zoomer.
   RFIT = RR[Math.max(1, Math.min(RINGVALG, RINGER))];
@@ -554,6 +548,7 @@ function tegn() {
   const RMAX = RR[RINGER], MARG = 34;
   const W = (RMAX + MARG) * 2, HH = RMAX + MARG + BUNN;
   const cx = W / 2, cy = RMAX + MARG;
+  GEO = {RR, cx, cy};                 // radiene og sentrum, så et ledd kan rammes inn
   duk.setAttribute('viewBox', `0 0 ${W} ${HH}`);
   duk.innerHTML = '';
   const defs = el('defs'), lag = el('g', {id:'lag'});
@@ -878,6 +873,31 @@ function tilpass() {
     ty = mTy = (b.height - 92 - oy) / u - cy * sk;
   }
   bruk();
+}
+// ETT LEDD OM GANGEN (KTØ 24.08.2026): i en vifte dobles antall personer for hvert
+// ledd mens radien ikke gjør det, så feltene MÅ bli mindre utover — likt areal og
+// lik form kan ikke oppnås samtidig. Derfor lar vi skjermen bestemme i stedet:
+// trykk på et ledd, og det leddet legger seg over skjermen. Da er hver generasjon
+// like stor der det teller — i det bildet du faktisk ser på.
+function visLedd(g) {
+  if (!GEO || g < 1 || g > RINGER) return;
+  lukk(); egetUtsnitt = true; LEDD = g;
+  const {b, u, ox, oy} = boks();
+  const r1 = GEO.RR[g-1], r2 = GEO.RR[g], midr = (r1 + r2) / 2, dyp = r2 - r1;
+  // ringens dybde skal ta omtrent halve høyden; ved de innerste leddene lar vi
+  // hele vifta få plass i stedet, ellers ville man stått midt oppi ett felt
+  const nySk = Math.min((b.height * 0.46) / (dyp * u),
+                        (b.height - 120) / ((r2 + 26) * u));
+  mSk = Math.max(0.05, nySk);
+  // toppen av ringen legges midt i bildet
+  mTx = (b.width / 2 - ox) / u - GEO.cx * mSk;
+  mTy = (b.height * 0.52 - oy) / u - (GEO.cy - midr) * mSk;
+  merkLedd();
+  kjør();
+}
+function merkLedd() {
+  const rv = document.getElementById('ringvalg');
+  if (rv) [...rv.children].forEach(c => c.classList.toggle('på', +c.dataset.g === LEDD));
 }
 function zoomMot(klientX, klientY, faktor) {
   const {b, u, ox, oy} = boks();
@@ -1456,21 +1476,27 @@ sok.addEventListener('keydown', e => {
 });
 addEventListener('keydown', e => { if (e.key === 'Escape') lukk(); });
 
-// ---------- ringvalg ----------
+// ---------- leddvelger ----------
+// Tallene er ikke lenger «hvor mange ringer skal tegnes» — hele anerekka er alltid
+// tegnet. De sier hvilket LEDD du vil se på, og legger det leddet over skjermen.
 const rv = document.getElementById('ringvalg');
-[4,5,6,7,8].forEach(n => {
-  const b = document.createElement('button');
-  b.textContent = n; b.title = n + ' generasjoner';
-  b.onclick = () => { RINGVALG = n; [...rv.children].forEach(c =>
-    c.classList.toggle('på', +c.textContent === n)); RINGER = ringmål(); tegn(); plasstekst(); };
-  if (n === RINGVALG) b.classList.add('på');
-  rv.appendChild(b);
-});
+function byggLeddvelger() {
+  rv.textContent = '';
+  for (let n = 1; n <= Math.min(RINGER, 9); n++) {
+    const b = document.createElement('button');
+    b.textContent = n; b.dataset.g = n;
+    b.title = RINGNAVN[n] ? RINGNAVN[n].toLowerCase() + ' — ' + n + '. ledd' : n + '. ledd';
+    b.onclick = () => visLedd(n);
+    rv.appendChild(b);
+  }
+  merkLedd();
+}
 document.getElementById('tilbakeknapp').style.display = 'none';
 // kortere knappetekst der hver piksel teller; raden kan ellers rulles sidelengs
 if (erSmal()) document.getElementById('nullstillknapp').textContent = 'Hele tavlen';
 plasserDuk();
 tegn();
+byggLeddvelger();          // knappene kjenner først antall ledd når tavlen er tegnet
 // Skriftene måles i selve dokumentet; er nettlesen ikke ferdig med skriftfila når
 // tavlen tegnes første gang, blir alle bredder feil. Én omtegning når skriftene
 // er klare koster ingenting og fjerner hele problemet.
