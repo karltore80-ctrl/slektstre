@@ -235,7 +235,20 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
  .tegnf i{width:8px;height:8px;margin:0 3px 0 8px}
  .tegnf i:first-of-type{margin-left:3px}
  dl{grid-template-columns:82px 1fr}
- body.hel header{display:none}
+ /* FULLSKJERM PÅ MOBIL MÅ HA EN VEI UT (KTØ 27.08.2026). Topplinjen ble skjult
+    i sin helhet, og knappen ut satt i den: «det må finnes en knapp for å komme
+    seg ut av fullskjerm på mobil. Nå er det ikke mulig.» Topplinjen blir nå
+    stående, men gjennomsiktig og uten innhold — bare knappen ut vises, som en
+    liten flytende knapp i hjørnet. Resten av flaten er fri for vifta. */
+ body.hel header{background:none;-webkit-backdrop-filter:none;backdrop-filter:none;
+  border-bottom:0;pointer-events:none;padding:0;height:0;overflow:visible}
+ body.hel header>*{display:none}
+ body.hel header .verkty{display:flex;width:auto;position:fixed;
+  top:calc(10px + env(safe-area-inset-top));right:10px;z-index:70}
+ body.hel header .verkty>*{display:none}
+ body.hel header #hel{display:inline-flex;pointer-events:auto;width:44px;height:44px;
+  background:rgba(255,255,255,.94);border:1px solid var(--kant);
+  box-shadow:0 3px 14px rgba(20,30,50,.22);color:var(--blekk)}
  body.hel.js #duk{top:0;height:100vh}
  body.hel #panel{top:auto}
 }
@@ -246,13 +259,19 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
    kortet seg langs høyre kant i halve vinduet og får full høyde, slik det gjør
    på PC. Stående visning er uendret — den er KTØ fornøyd med. */
 @media (max-height:500px) and (orientation:landscape){
- #panel{top:58px;bottom:0;left:auto;right:0;width:50vw;max-width:50vw;
+ /* Kortet skyves inn med `right`, ikke med `transform`. Transformen ble holdt
+    igjen av bunnarkets egen regel i den overlappende mobilspørringen, og kortet
+    ble stående utenfor kanten uansett hva `.åpen` sa. `right` har ingen slik
+    strid, og gir samme bevegelse. Rettet 27.08.2026. */
+ #panel{top:58px;bottom:0;left:auto;right:-52vw;width:50vw;max-width:50vw;
   max-height:none;border-radius:16px 0 0 0;
   border-left:1px solid var(--kant);border-right:0;border-bottom:0;border-top:1px solid var(--kant);
-  transform:translateX(103%);
+  transform:none;transition:right .34s cubic-bezier(.4,0,.2,1);
   padding:14px 18px calc(16px + env(safe-area-inset-bottom)) 20px;
   box-shadow:-14px 0 40px rgba(20,30,50,.18)}
- #panel.åpen{transform:none}
+ /* Høy vekt med vilje: bunnarkets regler i den overlappende mobilspørringen
+    holdt kortet ute uansett hva `.åpen` sa. `body.js` foran gir denne forrang. */
+ body.js #panel.åpen{right:0;transform:none}
  #panel::before{display:none}
  /* skriften ble satt opp for et bredt bunnark; i en halv skjerm er den for stor */
  #panel{font-size:14.5px}
@@ -1731,4 +1750,12 @@ lesbareRinger();
 function tilpassPåNytt() { plasserDuk(); sistE = -1; tilpass(); }
 requestAnimationFrame(tilpassPåNytt);
 addEventListener('load', tilpassPåNytt);
+// OG ETTER EN PAUSE. KTØ 27.08.2026: «Den er faktisk bedre og blir normal ved
+// dreining, ikke umiddelbart ved vanlig visning.» Dreiningen kjører
+// tilpasningen om etter 260 ms, og DA blir den riktig — mens neste bilderamme
+// og `load` begge kommer for tidlig på en telefon: flaten er ikke ferdig målt,
+// (b.height - 150) blir for lite, og skalaen faller ned på gulvet. Åpningen får
+// derfor samme forsinkelse som dreiningen, og en til for treg oppstart.
+setTimeout(tilpassPåNytt, 280);
+setTimeout(tilpassPåNytt, 700);
 </script></body></html>
