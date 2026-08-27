@@ -183,22 +183,57 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
  border:1px solid var(--kant);border-radius:999px}
 .tegnf i{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 5px 0 12px}
 .tegnf i:first-of-type{margin-left:6px}
+/* ---------- STYRELINJA NEDERST (KTØ 27.08.2026) ----------
+   På telefonen ligger styringa nederst, der tommelen når den. Den er borte på
+   store skjermer — der er det plass til alt i topplinja. */
+#bunn{display:none;position:fixed;left:0;right:0;bottom:0;z-index:30;
+ flex-direction:column;gap:7px;padding:7px 12px calc(7px + env(safe-area-inset-bottom));
+ background:rgba(251,252,253,.94);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+ border-top:1px solid var(--kant)}
+#bunn .bunnrad{display:flex;gap:9px;align-items:stretch}
+#bunn .knapper{flex:1;border-radius:14px}
+#bunn .knapper button{flex:1;padding:11px 0;font-size:14px}
+#bunn .knapper button+button{border-left:1px solid var(--kant)}
+#bunn #ringvalg button{font:16px/1 var(--serif);padding:12px 0;
+ font-variant-numeric:tabular-nums}
+#bunn #hovedknapper{flex:0 0 auto}
+#bunn #hovedknapper button{flex:0 0 auto;padding:11px 14px;font-size:13.5px}
+#bunn .bunnord{flex:0 0 auto;align-self:center;font-size:10.5px;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--dus);
+ font-family:-apple-system,"Segoe UI",Roboto,sans-serif}
+/* STOR VISNING PÅ TELEFON: topplinja legges bort, og med den lå også veien
+   TILBAKE — iPhone har ikke fullskjerm-API for nettsider, så Escape finnes ikke
+   heller. Knappen flyttes derfor ut av topplinja og blir stående flytende. */
+#hel.flyt{display:inline-flex !important;position:fixed;z-index:70;
+ top:calc(10px + env(safe-area-inset-top));right:12px;
+ width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.92);
+ -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+ box-shadow:0 4px 14px rgba(20,30,50,.14)}
+
 @media (max-width:700px), (max-height:500px){
- header{flex-wrap:nowrap;gap:6px;padding:8px 10px;
-  padding-top:calc(8px + env(safe-area-inset-top));overflow-x:auto}
+ /* IPHONE-OPPSETT (KTØ 27.08.2026): topplinja bar søk, ringvalg, «Tilbake til meg»,
+    fullskjerm OG hjelp på 402 piksler. Søkefeltet ble klippet midt i ledeteksten,
+    ringvalget lå halvt utenfor kanten, og raden måtte rulles sidelengs for å nås.
+    Nå er linja delt i to: SØKET øverst, klar av Dynamic Island, og STYRINGA nederst
+    i tommelens rekkevidde, klar av hjemindikatoren. Tavlen får flaten mellom dem. */
+ header{flex-wrap:nowrap;gap:8px;padding:6px 12px;
+  padding-top:calc(6px + env(safe-area-inset-top));overflow:visible}
  h1{display:none}
- .verkty{margin-left:0;width:100%;gap:6px;flex-wrap:nowrap}
- .sokboks{flex:1;min-width:104px;display:flex}
- #sok{width:100%;min-width:0;padding-top:10px;padding-bottom:10px;font-size:16px}
+ .verkty{margin-left:0;width:100%;gap:8px;flex-wrap:nowrap}
+ .sokboks{flex:1 1 auto;min-width:0;display:flex}
+ #sok{width:100%;min-width:0;padding:12px 14px 12px 32px;font-size:16px;border-radius:14px}
  #sok:focus{width:100%}
+ .sokboks::before{top:13px}
+ .sokboks::after{top:23px}
  .knapper button{padding:11px 10px;font-size:13px;white-space:nowrap}
  /* knip med to fingre zoomer — egne zoomknapper stjeler bare plass her */
  button[title="Zoom ut"],button[title="Zoom inn"]{display:none}
- #hel,#hjelpknapp{width:40px;height:40px;margin-left:0}
- #treff{position:fixed;top:64px;left:12px;width:calc(100vw - 24px);max-height:52vh}
+ #hel,#hjelpknapp{width:44px;height:44px;margin-left:0;border-radius:14px;flex:0 0 auto}
+ #treff{position:fixed;left:12px;width:calc(100vw - 24px);max-height:52vh;border-radius:14px}
  #treff div{padding:12px 14px;font-size:15px}
  .tegnf{display:none !important}
- body.js #duk{top:58px;height:calc(100vh - 58px)}
+ body.js #bunn{display:flex}
+ body.js #duk{top:58px;height:calc(100dvh - 58px)}
  /* nativ mobil: duken i vanlig flyt, stor nok til å leses, siden ruller selv */
  .nativ html,.nativ body{height:auto}
  .nativ body.js{overflow:visible}
@@ -206,38 +241,48 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
   margin:64px 0 40vh;touch-action:auto;cursor:default}
  .nativ header{position:fixed;left:0;right:auto;width:100vw}
  .nativ #ringvalg{display:none}
+ /* Anekortet er et ark som dras opp fra bunnen — det legger seg OVER styrelinja,
+    og går aldri under hjemindikatoren. */
  #panel{top:auto;bottom:0;left:0;right:0;width:100%;max-width:100%;
-  border-radius:16px 16px 0 0;border-left:0;border-right:0;border-bottom:0;
-  max-height:62vh;transform:translateY(105%);
-  padding:16px 18px calc(24px + env(safe-area-inset-bottom));
-  box-shadow:0 -14px 40px rgba(20,30,50,.18)}
+  border-radius:20px 20px 0 0;border-left:0;border-right:0;border-bottom:0;
+  max-height:78dvh;transform:translateY(105%);z-index:50;
+  padding:14px 20px calc(28px + env(safe-area-inset-bottom));
+  box-shadow:0 -14px 40px rgba(20,30,50,.18);
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
  #panel.åpen{transform:none}
- #panel::before{content:"";display:block;width:38px;height:4px;border-radius:2px;
+ #panel::before{content:"";display:block;width:44px;height:5px;border-radius:3px;
   background:#d5dae0;margin:0 auto 12px}
- #lukk{width:34px;height:34px;font-size:22px;top:10px;right:10px}
- #sentrum{padding:12px;font-size:16px}
+ #lukk{width:38px;height:38px;font-size:23px;top:12px;right:12px}
+ #sentrum{padding:14px;font-size:16px;border-radius:14px}
  /* anekortet leses på en armlengdes avstand — skriften opp et hakk over hele kortet */
  #panel{font-size:16px}
  #panel h2{font-size:25px}
  .plev{font-size:18px}
  .slektsledd{font-size:16px}
  .hist{font-size:17.5px}
+ /* Blokkjustering på en 402 piksler bred spalte river hull i teksten. */
+ .hist{text-align:left}
  .sosken{font-size:16px}
  .sosken .sh{font-size:14.5px}
  dl{font-size:16px}
  .kilde .hva{font-size:15px}
  .kilde>summary{font-size:15px}
  .pmeta{font-size:13.5px}
- .tegnf{left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));
-  font-size:9.5px;padding:4px 6px;border-radius:12px;white-space:nowrap;text-align:center;
-  overflow:hidden}
  .sikord{display:none}
- .tegnf i{width:8px;height:8px;margin:0 3px 0 8px}
- .tegnf i:first-of-type{margin-left:3px}
  dl{grid-template-columns:82px 1fr}
- body.hel header{display:none}
- body.hel.js #duk{top:0;height:100vh}
+ /* stor visning: begge linjene legges bort, tavlen tar hele glasset */
+ body.hel header,body.hel #bunn{display:none !important}
+ body.hel.js #duk{top:0;height:100dvh}
  body.hel #panel{top:auto}
+}
+/* Telefonen på tvers har knapt 240 piksler å tegne på. Da legges styrelinja på ÉN
+   rad, og tavlen får høyden tilbake. */
+@media (max-height:500px){
+ #bunn{flex-direction:row;align-items:center;gap:9px;
+  padding:6px 12px calc(6px + env(safe-area-inset-bottom))}
+ #bunn .bunnrad{flex:1}
+ #bunn .knapper button,#bunn #ringvalg button{padding:9px 0}
+ #bunn #hovedknapper button{padding:9px 14px}
 }
 </style></head><body>
 
@@ -247,7 +292,7 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
     <div class="sokboks"><input id="sok" placeholder="Finn person eller anenummer …" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="search" enterkeyhint="search">
       <div id="treff"></div></div>
     <div class="knapper" id="ringvalg"></div>
-    <div class="knapper">
+    <div class="knapper" id="hovedknapper">
       <button onclick="zoomMot(innerWidth/2, innerHeight/2, 0.8)" title="Zoom ut">−</button>
       <button onclick="zoomMot(innerWidth/2, innerHeight/2, 1.25)" title="Zoom inn">+</button>
       <button onclick="tilbake()" id="tilbakeknapp">Tilbake til meg</button>
@@ -266,7 +311,7 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
     <dt>Trykk et felt</dt><dd>åpner kortet om personen — hele fortellingen i lesbar tekst</dd>
     <dt>Dra</dt><dd>flytter vifta</dd>
     <dt>Knip / dobbelttrykk</dt><dd>zoomer inn der du peker — de ytterste ringene blir lesbare</dd>
-    <dt>Tallene 4–8</dt><dd>hvor mange slektsledd som vises; færre ledd gir større felt</dd>
+    <dt>Ledd-raden</dt><dd>nederst på telefonen, i topplinja ellers: hvor mange slektsledd som vises; færre ledd gir større felt</dd>
     <dt>Søkefeltet</dt><dd>finner en person på navn og åpner kortet</dd>
     <dt>×</dt><dd>lukker kortet — det lukker seg aldri av seg selv</dd>
   </dl>
@@ -291,6 +336,10 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
 <i style="background:var(--sanns)"></i>sannsynliggjort
 <i style="background:var(--ubekr)"></i>ubekreftet
 <span id="skjult" style="margin-left:16px;color:#9aa3ad"></span></div>
+
+<div id="bunn">
+  <div class="bunnrad" id="bunnledd"><span class="bunnord">Ledd</span></div>
+</div>
 
 <div id="panel"><button id="lukk" onclick="lukk()" title="Lukk">×</button><div id="pinn"></div></div>
 
@@ -756,13 +805,31 @@ if (NATIV && window.visualViewport) {
   fest();
   new MutationObserver(fest).observe(document.getElementById('panel'), {attributes:true, attributeFilter:['class']});
 }
-addEventListener('resize', () => { plasserDuk(); sistE = -1; bruk(); });
+addEventListener('resize', () => {
+  if (typeof flyttVerkty === 'function') flyttVerkty();
+  plasserDuk(); sistE = -1; tilpass();
+});
 // iPhone melder ikke alltid resize når skjermen snus, og målene er dessuten
 // utdaterte i det øyeblikket hendelsen kommer. Derfor måles flaten på nytt etterpå.
 addEventListener('orientationchange', () => {
-  setTimeout(() => { plasserDuk(); sistE = -1; tilpass(); }, 260);
+  setTimeout(() => {
+    if (typeof flyttVerkty === 'function') flyttVerkty();
+    plasserDuk(); sistE = -1; tilpass();
+  }, 260);
 });
-new ResizeObserver(() => { sistE = -1; bruk(); }).observe(duk);
+// FLATEN MÅLES FERDIG FØR UTSNITTET SETTES (KTØ 27.08.2026): ved oppstart melder
+// telefonen først en bredere flate enn den har (tavlens papirbredde), og utsnittet
+// ble regnet mot den — vifta la seg i overkant med halve skjermen tom. Nå tilpasses
+// den på nytt hver gang flaten faktisk endrer mål, helt til brukeren selv tar tak.
+let egetUtsnitt = false, sistMål = '';
+new ResizeObserver(() => {
+  sistE = -1;
+  const b = duk.getBoundingClientRect();
+  const mål = Math.round(b.width) + '×' + Math.round(b.height);
+  if (mål === sistMål || egetUtsnitt) { bruk(); return; }
+  sistMål = mål;
+  plasserDuk(); tilpass();
+}).observe(duk);
 
 // ---------- anelinje ----------
 function linje(k) { const ut=[]; while(k>=1){ut.push(k);k=Math.floor(k/2);} return ut; }
@@ -918,11 +985,26 @@ function kjør() {
   if (!løper) { løper = true; requestAnimationFrame(ramme); }
 }
 const hode = document.querySelector('header');
+// TO LINJER, ETT GLASS (KTØ 27.08.2026): på telefonen står søket øverst og
+// styringa nederst. Tavlen skal ha nøyaktig flaten MELLOM dem — ellers havner
+// probanden bak styrelinja.
+function bunnhøyde() {
+  // MERK: offsetParent er ALLTID null for et fast plassert element, så den prøven
+  // duger ikke her.
+  const b = document.getElementById('bunn');
+  if (!b || getComputedStyle(b).display === 'none') return 0;
+  return Math.round(b.getBoundingClientRect().height);
+}
 function plasserDuk() {
-  if (NATIV) { duk.style.top=''; duk.style.height=''; return; }
-  const h = hode.offsetHeight;
+  if (NATIV) { duk.style.top=''; duk.style.height=''; duk.style.width=''; return; }
+  const h = hode.offsetHeight, hb = bunnhøyde();
   duk.style.top = h + 'px';
-  duk.style.height = (innerHeight - h) + 'px';
+  duk.style.height = Math.max(120, innerHeight - h - hb) + 'px';
+  // BREDDEN MÅLES, IKKE REGNES (KTØ 27.08.2026): «width:100vw» ble ved oppstart
+  // stående på 1160 px — tavlens papirbredde — enda flaten var 402. Utsnittet ble
+  // da regnet mot en skjerm som ikke fantes, vifta la seg i overkant, og halve
+  // telefonen sto tom. Bredden settes derfor i piksler, av flaten selv.
+  duk.style.width = document.documentElement.clientWidth + 'px';
 }
 // viewBox-en midtstilles i elementet; boks() gir skala og forskyvning
 function boks() {
@@ -959,10 +1041,29 @@ function tilpass() {
     const fyllB = (b.width * 0.98) / (vb.width * u);
     // Taket 3,6 lot halve skjermen stå tom på høye mobilskjermer. Vifta får
     // fylle flaten den har, uansett hvor høy den er.
-    sk = mSk = Math.min(8, Math.max(1.6, Math.max((b.height - 150) / viftehøyde, fyllB)));
+    // Luften over og under er nå bare marginen mot de to linjene — de ligger
+    // utenfor duken, og skal ikke trekkes fra en gang til.
+    sk = mSk = Math.min(8, Math.max(1.6, Math.max((b.height - 46) / viftehøyde, fyllB)));
     grunnSk = mSk;
     tx = mTx = (b.width / 2 - ox) / u - cx * sk;
-    ty = mTy = (b.height - 96 - oy) / u - cy * sk;
+    ty = mTy = (b.height - 30 - oy) / u - cy * sk;
+    // MÅLT, IKKE REGNET (KTØ 27.08.2026): rammen om tegningen sitter tett om det som
+    // faktisk ble tegnet, så regnestykket over traff hverken bunnen eller midten —
+    // vifta ble stående i overkant med en død stripe under. Nå måles vifta slik den
+    // står, og utsnittet stemmes etter målet: fyller høyden, står midt i bredden, og
+    // probanden hviler like over styrelinja.
+    bruk();
+    const laget = document.getElementById('lag');
+    let lb = laget && laget.getBoundingClientRect();
+    if (lb && lb.height > 4) {
+      const f = Math.max(0.4, Math.min(8 / sk, (b.height - 24) / lb.height));
+      sk = mSk = sk * f; grunnSk = mSk;
+      bruk();
+      lb = laget.getBoundingClientRect();
+      const d = duk.getBoundingClientRect();
+      tx = mTx = tx + ((d.left + d.width / 2) - (lb.left + lb.width / 2)) / u;
+      ty = mTy = ty + ((d.bottom - 14) - lb.bottom) / u;
+    }
   } else {
     sk = mSk = 1; tx = mTx = 0; ty = mTy = 0; grunnSk = 1;
   }
@@ -998,6 +1099,7 @@ function holdVifta() {
 }
 
 function zoomMot(klientX, klientY, faktor) {
+  egetUtsnitt = true;                     // fra nå står utsnittet slik brukeren satte det
   const {b, u, ox, oy} = boks();
   const mx = (klientX - b.left - ox) / u, my = (klientY - b.top - oy) / u;
   // Taket 4,5x var satt for PC. På liten flate starter vifta alt på opptil 3,6x
@@ -1076,6 +1178,7 @@ if (!NATIV) duk.addEventListener('pointermove', e => {
   if (!drar) return;
   const s = 1 / boks().u;
   flyttet += Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy);
+  if (flyttet >= 8) egetUtsnitt = true;
   // Dødsone: fingeren skjelver alltid litt i et trykk, og uten denne panorerte
   // selv det minste trykket hele tavlen. Først forbi terskelen begynner draget.
   if (flyttet < 8) { sx = e.clientX; sy = e.clientY; return; }
@@ -1548,6 +1651,7 @@ function settSentrum(id) {
     document.getElementById('tittel').textContent =
       ROT === 1 ? 'Anetavlen til Karl Tore Øvergård' : 'Anetavlen til ' + P[SLOT[ROT]].navn;
     document.getElementById('tilbakeknapp').style.display = ROT === 1 ? 'none' : '';
+    oppdaterStyr();
     duk.style.transition = 'opacity .3s'; duk.style.opacity = 1;
   }, 180);
   lukk();
@@ -1575,6 +1679,14 @@ function settHel(på) {
   document.getElementById('helinn').style.display = på ? 'none' : '';
   document.getElementById('helut').style.display = på ? '' : 'none';
   helknapp.setAttribute('aria-label', på ? 'Vis normalt' : 'Vis stort');
+  // Knappen må overleve at topplinja legges bort — ellers kommer man aldri ut igjen.
+  const verkty = document.querySelector('.verkty');
+  if (på) { helknapp.classList.add('flyt'); document.body.appendChild(helknapp); }
+  else {
+    helknapp.classList.remove('flyt');
+    if (helknapp.parentNode !== verkty)
+      verkty.insertBefore(helknapp, document.getElementById('hjelpknapp'));
+  }
   plasserDuk(); sistE = -1; bruk();
 }
 helknapp.addEventListener('click', () => {
@@ -1652,6 +1764,36 @@ const rv = document.getElementById('ringvalg');
   if (n === RINGVALG) b.classList.add('på');
   rv.appendChild(b);
 });
+// SØK ØVERST, STYRING NEDERST (KTØ 27.08.2026): de samme knappene, men flyttet
+// dit fingeren er. Blir flaten stor igjen (rotasjon, nettbrett, PC), går de like
+// stille tilbake til topplinja — det finnes bare ett sett knapper.
+const bunnlinje = document.getElementById('bunn'),
+      bunnledd  = document.getElementById('bunnledd');
+// «Tilbake til meg» står bare når man har satt en ane i midten, og zoomknappene er
+// borte på telefonen. Er hele gruppa tom, skal den ikke stå igjen som en tom stripe.
+function oppdaterStyr() {
+  const hk = document.getElementById('hovedknapper');
+  if (!hk) return;
+  if (!erSmal()) { hk.style.display = ''; return; }
+  const noe = [...hk.children].some(b => getComputedStyle(b).display !== 'none');
+  hk.style.display = noe ? '' : 'none';
+}
+function flyttVerkty() {
+  const smal = erSmal(),
+        rvEl = document.getElementById('ringvalg'),
+        hkEl = document.getElementById('hovedknapper'),
+        helEl = document.getElementById('hel'),
+        verkty = document.querySelector('.verkty');
+  if (smal) {
+    if (rvEl.parentNode !== bunnledd) bunnledd.appendChild(rvEl);
+    if (hkEl.parentNode !== bunnledd) bunnledd.appendChild(hkEl);
+  } else {
+    if (rvEl.parentNode !== verkty) verkty.insertBefore(rvEl, helEl);
+    if (hkEl.parentNode !== verkty) verkty.insertBefore(hkEl, helEl);
+  }
+  bunnlinje.style.display = smal ? '' : 'none';
+  oppdaterStyr();
+}
 document.getElementById('tilbakeknapp').style.display = 'none';
 // («Vis hele tavlen»-knappen er fjernet — ingen korttekst å sette lenger.)
 
@@ -1675,7 +1817,14 @@ function lesbareRinger() {
   }
   [...rv.children].forEach(c => c.classList.toggle('på', +c.textContent === RINGVALG));
 }
+flyttVerkty();
 plasserDuk();
 tegn();
 lesbareRinger();
+// Ved oppstart måles duken før nettleseren er ferdig med å legge ut siden, og
+// utsnittet ble stående på minstemålet: vifta lå i overkant med halve skjermen
+// tom. Den tilpasses derfor på nytt når flaten er ferdig målt.
+requestAnimationFrame(() => { plasserDuk(); sistE = -1; tilpass(); });
+if (document.fonts && document.fonts.ready)
+  document.fonts.ready.then(() => { plasserDuk(); sistE = -1; tilpass(); });
 </script></body></html>
