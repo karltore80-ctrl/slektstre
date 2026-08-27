@@ -909,6 +909,12 @@ function ramme() {
 let ringerTimer = 0, grunnSk = 1, beholdUtsnitt = false, sistPlass = 0;
 let rotstakk = [];   // veien man har gått innover, så utzooming går samme vei hjem   // startskalaen — utfolding måles RELATIVT til den
 function ringmål() {
+  // PÅ BERØRINGSSKJERM STÅR RINGTALLET FAST og følger tallknappene alene
+  // (KTØ 27.08.2026). Zoomtrinnet nedenfor ga settSentrum ett ledd MER enn
+  // knappene sa, og 200 ms etter neste knip «rettet» autoRinger det med en
+  // omtegning i ny geometri mens kameratallene sto urørt — vifta spratt da
+  // opp mot høyre og ut av skjermen. Trinnet gjelder derfor bare mus/PC.
+  if (PEKEGROV) return Math.min(8, MAXGEN, RINGVALG);
   const f = mSk / (grunnSk || 1);
   const trinn = f < 1.9 ? 0 : 1;
   // Velger man 7 eller 8 ledd, skal tavlen faktisk tegne dem. Taket lå på 6 og
@@ -1103,6 +1109,12 @@ if (!NATIV) duk.addEventListener('touchmove', e => e.preventDefault(), {passive:
 // tavlen eller kortkanten. Alt som ikke skal rulle (alt utenfor panelet, hjelpen,
 // trefflisten og topplinjen) forbrukes derfor av siden selv.
 if (!NATIV) document.addEventListener('touchmove', e => {
+  // To fingre er ALLTID zoom av vifta — aldri rulling i panelet, og aldri
+  // nettleserens egen side-zoom. Unntaket for panelflatene gjelder bare én
+  // finger: gjennom det unntaket fikk nettleseren knipe hele SIDEN når den ene
+  // fingeren traff kortet eller topplinjen, og tavlen ble stående utenfor
+  // synsfeltet til mobilen ble snudd.
+  if (e.touches.length > 1) { e.preventDefault(); return; }
   if (!e.target.closest || !e.target.closest('#panel,#hjelp,#treff,header')) e.preventDefault();
 }, {passive:false});
 const pekere = new Map();
@@ -1111,8 +1123,25 @@ if (NATIV) duk.addEventListener('click', e => {
   if (m) { popp(+m.dataset.k); vis(m.dataset.pid, +m.dataset.k); }
 });
 let drar = false, sx = 0, sy = 0, klikkmål = null, flyttet = 0;
-let knip = 0, sistTapp = 0, tappX = 0, tappY = 0;
-if (!NATIV) duk.addEventListener('pointerdown', e => {
+let knip = 0, knipMX = 0, knipMY = 0, sistTapp = 0, tappX = 0, tappY = 0;
+// KNIPET STARTER PÅ NYTT GRUNNLAG hver gang fingerparet endres — to fingre ned,
+// eller en tredje løftet så et annet par blir igjen. Avstand og midtpunkt måles
+// da herfra, ellers leses parskiftet som et sprang.
+function startKnip() {
+  const [a, b2] = [...pekere.values()];
+  knip = Math.max(12, Math.hypot(a[0] - b2[0], a[1] - b2[1]));
+  knipMX = (a[0] + b2[0]) / 2; knipMY = (a[1] + b2[1]) / 2;
+  klikkmål = null; flyttet = 99; drar = false; duk.classList.remove('drar');
+}
+if (!NATIV) document.addEventListener('pointerdown', e => {
+  // FINGRENE TELLES PÅ HELE SIDEN, ikke bare på duken. Med anekortet åpent
+  // (62 % av skjermen på høykant) landet annenhver knip med én finger på kortet
+  // eller topplinjen; den fingeren ble aldri registrert, og «knipet» ble lest
+  // som ettfinger-dra — vifta gled av gårde og ut. Første finger på kortet,
+  // hjelpen, trefflisten eller topplinjen er fortsatt flatens egen (rulle,
+  // trykke); men har tavlen alt en finger, hører finger to KNIPET til, uansett
+  // hvor den lander.
+  if (!duk.contains(e.target) && pekere.size === 0) return;
   // FINGEREN FØRES INN FØRST, FANGSTEN ETTERPÅ. Slik det sto, ble
   // setPointerCapture kalt før pekeren var registrert — slo den feil, gikk
   // fingeren tapt, `pekere` nådde aldri to, og knipet ble aldri påbegynt.
@@ -1121,29 +1150,33 @@ if (!NATIV) duk.addEventListener('pointerdown', e => {
   // 27.08.2026 som «jeg kan ikke zoome med fingrene — bildet forsvinner».
   pekere.set(e.pointerId, [e.clientX, e.clientY]);
   try { duk.setPointerCapture(e.pointerId); } catch (_) {}
-  if (pekere.size === 2) {                      // knip med to fingre
-    const [a, b2] = [...pekere.values()];
-    knip = Math.hypot(a[0] - b2[0], a[1] - b2[1]);
-    klikkmål = null; flyttet = 99; drar = false;
-    return;
-  }
+  if (pekere.size === 2) { startKnip(); return; }  // knip med to fingre
+  if (pekere.size > 2) { klikkmål = null; flyttet = 99; return; }
   drar = true; sx = e.clientX; sy = e.clientY; flyttet = 0;
   const m = e.target.closest('[data-pid]');
   klikkmål = m ? [m.dataset.pid, +m.dataset.k] : null;
   duk.classList.add('drar');
 });
-if (!NATIV) duk.addEventListener('pointermove', e => {
+if (!NATIV) document.addEventListener('pointermove', e => {
   if (!pekere.has(e.pointerId)) return;
   pekere.set(e.pointerId, [e.clientX, e.clientY]);
-  if (pekere.size === 2 && knip > 0) {
+  if (pekere.size >= 2 && knip > 0) {
     const [a, b2] = [...pekere.values()];
     const d = Math.hypot(a[0] - b2[0], a[1] - b2[1]);
+    const mx = (a[0] + b2[0]) / 2, my = (a[1] + b2[1]) / 2;
+    // KNIPET SKAL HOLDE I TREET: punktet mellom fingrene skal bli stående
+    // mellom fingrene hele veien. Før zoomet koden bare OM midtpunktet og
+    // overså at hånden vandrer under et knip — vifta «slapp taket» og gled
+    // unna fingrene. Nå panoreres vandringen inn først, deretter zoomes det
+    // om det nye midtpunktet.
+    const u = boks().u;
+    tx += (mx - knipMX) / u; ty += (my - knipMY) / u; mTx = tx; mTy = ty;
     if (d > 8) {
-      zoomMot((a[0] + b2[0]) / 2, (a[1] + b2[1]) / 2, d / knip);
-      sk = mSk; tx = mTx; ty = mTy; bruk();      // knip skal følge fingrene direkte
-
+      zoomMot(mx, my, d / knip);
+      sk = mSk; tx = mTx; ty = mTy;              // knip skal følge fingrene direkte
       knip = d;
     }
+    knipMX = mx; knipMY = my; bruk();
     return;
   }
   if (!drar) return;
@@ -1157,8 +1190,15 @@ if (!NATIV) duk.addEventListener('pointermove', e => {
   sx = e.clientX; sy = e.clientY; bruk();
 });
 function slipp(e) {
-  pekere.delete(e.pointerId);
-  if (pekere.size < 2) knip = 0;
+  if (!pekere.delete(e.pointerId)) return;
+  if (pekere.size >= 2) { startKnip(); return; }
+  knip = 0;
+  if (pekere.size === 1) {
+    // én finger igjen etter knipet: den overtar som drag der den står,
+    // uten å telle som trykk — ellers lå det et dødt ledd mellom knip og dra
+    const [rest] = [...pekere.values()];
+    drar = true; sx = rest[0]; sy = rest[1]; flyttet = 99;
+  }
 }
 if (!NATIV) addEventListener('pointerup', e => {
   slipp(e);
@@ -1618,7 +1658,10 @@ function settSentrum(id) {
   RINGER = ringmål();
   duk.style.opacity = 0;
   setTimeout(() => {
-    sk = 1; tx = 0; ty = 0; tegn();
+    // Hele kameraet nullstilles — mål og verdi. Ble bare sk/tx/ty satt, lå
+    // målverdiene igjen fra forrige utsnitt, og en animasjonsramme som ennå
+    // løp trakk kameraet mot dem midt i overgangen.
+    sk = mSk = 1; tx = mTx = 0; ty = mTy = 0; tegn();
     document.getElementById('tittel').textContent =
       ROT === 1 ? 'Anetavlen til Mai Britt Hansen' : 'Anetavlen til ' + P[SLOT[ROT]].navn;
     document.getElementById('tilbakeknapp').style.display = ROT === 1 ? 'none' : '';
