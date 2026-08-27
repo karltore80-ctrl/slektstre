@@ -239,6 +239,32 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
  body.hel.js #duk{top:0;height:100vh}
  body.hel #panel{top:auto}
 }
+/* LIGGENDE TELEFON: KORTET KOMMER FRA SIDEN, IKKE FRA BUNNEN (KTØ 27.08.2026).
+   Det mobile oppsettet gjør kortet til et bunnark — full bredde, 62 % av
+   høyden. Snur man telefonen, blir 62 % av 375 px bare 232, og teksten
+   strekker seg over hele langsiden: «det er vanskelig å lese». Her legger
+   kortet seg langs høyre kant i halve vinduet og får full høyde, slik det gjør
+   på PC. Stående visning er uendret — den er KTØ fornøyd med. */
+@media (max-height:500px) and (orientation:landscape){
+ #panel{top:58px;bottom:0;left:auto;right:0;width:50vw;max-width:50vw;
+  max-height:none;border-radius:16px 0 0 0;
+  border-left:1px solid var(--kant);border-right:0;border-bottom:0;border-top:1px solid var(--kant);
+  transform:translateX(103%);
+  padding:14px 18px calc(16px + env(safe-area-inset-bottom)) 20px;
+  box-shadow:-14px 0 40px rgba(20,30,50,.18)}
+ #panel.åpen{transform:none}
+ #panel::before{display:none}
+ /* skriften ble satt opp for et bredt bunnark; i en halv skjerm er den for stor */
+ #panel{font-size:14.5px}
+ #panel h2{font-size:20px}
+ .plev{font-size:15px}
+ .slektsledd{font-size:14px}
+ .hist{font-size:15px}
+ .sosken{font-size:14px}
+ dl{font-size:14px;grid-template-columns:76px 1fr}
+ #lukk{width:30px;height:30px;font-size:20px;top:8px;right:8px}
+ body.hel #panel{top:0}
+}
 </style></head><body>
 
 <header>
