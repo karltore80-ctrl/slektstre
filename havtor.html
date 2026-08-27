@@ -881,7 +881,19 @@ function autoRinger() {
     // trår tavlen et steg bakover — anen i synsfeltets midte settes i sentrum,
     // og alt der får full størrelse. Zoomer man helt ut igjen, trår den hjem.
     if (f > 2.7) {
-      const e = document.elementFromPoint(innerWidth / 2, innerHeight * 0.45);
+      // PRØVEPUNKTET MÅ LIGGE DER VIFTA ER, IKKE PÅ 45 % AV VINDUET.
+      // På PC står halvsirkelen midt på skjermen og 45 % traff. På telefon
+      // ligger den nederst — punktet landet i tomrommet over den, og tavlen
+      // tegnet seg om med nullstilt kamera. For KTØ så det ut som at knipet
+      // ikke virket: bildet gled oppover og forsvant. Punktet regnes nå ut av
+      // det som faktisk er tegnet. Rettet 27.08.2026 etter KTØs feilmelding.
+      const lag = document.getElementById('lag');
+      const lr = lag && lag.getBoundingClientRect();
+      const px = lr && lr.width ? lr.left + lr.width / 2 : innerWidth / 2;
+      const py = lr && lr.height ? lr.top + lr.height * 0.45 : innerHeight * 0.45;
+      const e = document.elementFromPoint(
+        Math.max(1, Math.min(innerWidth - 1, px)),
+        Math.max(1, Math.min(innerHeight - 1, py)));
       const m = e && e.closest ? e.closest('[data-pid]') : null;
       if (m && m.dataset.pid !== SLOT[ROT]) {
         rotstakk.push(SLOT[ROT]);
@@ -956,6 +968,35 @@ function tilpass() {
   }
   bruk();
 }
+// VIFTA SKAL ALDRI KUNNE FORSVINNE HELT. Det fantes ingen grense på panorering
+// og zoom: dro man langt nok, eller knep man mens tavlen tegnet seg om, gled
+// hele vifta ut av skjermen og var borte. Her holdes minst en fjerdedel av den
+// innenfor synsfeltet, i begge retninger. Grensen flytter aldri noe som alt er
+// synlig — den griper først når vifta er på vei ut. Lagt inn 27.08.2026 etter
+// KTØs feilmelding om at bildet «beveger seg oppover og forsvinner».
+// NB: navnet holdSynlig var alt i bruk lenger nede — den holder ETT LEDD i
+// syne når et kort åpnes. Denne holder HELE vifta, og heter derfor holdVifta.
+function holdVifta() {
+  const lag = document.getElementById('lag');
+  if (!lag) return;
+  const r = lag.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const {u} = boks();
+  if (!u) return;
+  const topp = 64;                                   // topplinjen dekker dette
+  const minX = Math.min(r.width, innerWidth) * 0.25;
+  const minY = Math.min(r.height, innerHeight - topp) * 0.25;
+  let dx = 0, dy = 0;
+  if (r.right  < minX)              dx = minX - r.right;
+  else if (r.left > innerWidth - minX)  dx = (innerWidth - minX) - r.left;
+  if (r.bottom < topp + minY)       dy = (topp + minY) - r.bottom;
+  else if (r.top > innerHeight - minY)  dy = (innerHeight - minY) - r.top;
+  if (!dx && !dy) return;
+  mTx += dx / u; mTy += dy / u;
+  tx += dx / u;  ty += dy / u;
+  bruk();
+}
+
 function zoomMot(klientX, klientY, faktor) {
   const {b, u, ox, oy} = boks();
   const mx = (klientX - b.left - ox) / u, my = (klientY - b.top - oy) / u;
@@ -964,7 +1005,7 @@ function zoomMot(klientX, klientY, faktor) {
   // ringene kunne aldri leses. Der får zoomen gå til 20x.
   const ny = Math.min(erSmal() ? 20 : 6, Math.max(.6, mSk * faktor));
   mTx = mx - (mx - mTx) * (ny / mSk); mTy = my - (my - mTy) * (ny / mSk); mSk = ny;
-  kjør();
+  kjør(); holdVifta();
 }
 if (!NATIV) duk.addEventListener('wheel', e => {
   e.preventDefault();
@@ -1000,8 +1041,14 @@ if (NATIV) duk.addEventListener('click', e => {
 let drar = false, sx = 0, sy = 0, klikkmål = null, flyttet = 0;
 let knip = 0, sistTapp = 0, tappX = 0, tappY = 0;
 if (!NATIV) duk.addEventListener('pointerdown', e => {
-  duk.setPointerCapture(e.pointerId);
+  // FINGEREN FØRES INN FØRST, FANGSTEN ETTERPÅ. Slik det sto, ble
+  // setPointerCapture kalt før pekeren var registrert — slo den feil, gikk
+  // fingeren tapt, `pekere` nådde aldri to, og knipet ble aldri påbegynt.
+  // Da sto `drar` igjen fra første finger, og å dra fingrene fra hverandre ble
+  // lest som et vanlig drag oppover: vifta gled ut av skjermen. KTØ meldte det
+  // 27.08.2026 som «jeg kan ikke zoome med fingrene — bildet forsvinner».
   pekere.set(e.pointerId, [e.clientX, e.clientY]);
+  try { duk.setPointerCapture(e.pointerId); } catch (_) {}
   if (pekere.size === 2) {                      // knip med to fingre
     const [a, b2] = [...pekere.values()];
     knip = Math.hypot(a[0] - b2[0], a[1] - b2[1]);
@@ -1034,7 +1081,7 @@ if (!NATIV) duk.addEventListener('pointermove', e => {
   if (flyttet < 8) { sx = e.clientX; sy = e.clientY; return; }
   const dx = (e.clientX - sx) * s, dy = (e.clientY - sy) * s;
   tx += dx; ty += dy; mTx += dx; mTy += dy;
-  sx = e.clientX; sy = e.clientY; bruk();
+  sx = e.clientX; sy = e.clientY; bruk(); holdVifta();
 });
 function slipp(e) {
   pekere.delete(e.pointerId);
