@@ -329,6 +329,7 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
     <div><i style="background:var(--sanns)"></i>sannsynliggjort — sluttet av flere kilder</div>
     <div><i style="background:var(--ubekr)"></i>ubekreftet — ikke belagt ennå</div>
   </div>
+  <div style="color:var(--dus);font-size:12px;margin-top:10px">Utgave 27.08.2026-c</div>
   <button onclick="hjelpLukk()">Forstått — vis tavlen</button>
 </div></div>
 
@@ -758,6 +759,9 @@ function tegn() {
     }
     duk.setAttribute('viewBox', `${x.toFixed(1)} ${y.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
   }
+  // buret måler vifta på nytt for hver tegning — gjelder dermed også etter
+  // sentrumsskifte og ringvalg, ikke bare ved oppstart
+  try { VIFTEMÅL = lag.getBBox(); } catch (_) { VIFTEMÅL = null; }
   // Utfolding midt i en zoom skal BEHOLDE utsnittet — å nullstille til
   // startbildet her fikk ringene til å falle tilbake («6 → 3»-hoppet).
   if (beholdUtsnitt) bruk(); else tilpass();
@@ -809,6 +813,9 @@ addEventListener('resize', () => { plasserDuk(); sistE = -1; bruk(); });
 // iPhone melder ikke alltid resize når skjermen snus, og målene er dessuten
 // utdaterte i det øyeblikket hendelsen kommer. Derfor måles flaten på nytt etterpå.
 addEventListener('orientationchange', () => {
+  // rotasjonen avslutter berøringene, men slipp-meldingene kan utebli —
+  // fingerkartet tømmes så neste knip starter rent
+  pekere.clear(); knip = 0; drar = false; duk.classList.remove('drar');
   setTimeout(() => { plasserDuk(); sistE = -1; tilpass(); }, 260);
 });
 new ResizeObserver(() => { sistE = -1; bruk(); }).observe(duk);
@@ -863,6 +870,10 @@ let sistE = -1;
 function bruk() {
   if (!isFinite(tx) || !isFinite(ty) || !isFinite(sk))
     console.error('KAMERAFEIL', tx, ty, sk, mTx, mTy, mSk, new Error().stack);
+  // buret: både stillingen og målet klemmes, så heller ikke en animasjon
+  // underveis kan trekke vifta ut av bildet
+  const kl = klem(sk, tx, ty);      tx = kl[0];  ty = kl[1];
+  const klM = klem(mSk, mTx, mTy);  mTx = klM[0]; mTy = klM[1];
   const g = document.getElementById('lag');
   if (g) g.setAttribute('transform', `translate(${tx} ${ty}) scale(${sk})`);
   const vb = duk.viewBox.baseVal, b = duk.getBoundingClientRect();
@@ -1005,8 +1016,11 @@ function tilpass() {
     // større, knipes det inn — og knipet virker nå. Rettet 27.08.2026.
     sk = mSk = Math.min(8, Math.min(fyllB, Math.max(1, (b.height - 150) / viftehøyde)));
     grunnSk = mSk;
-    tx = mTx = (b.width / 2 - ox) / u - cx * sk;
-    ty = mTy = (b.height - 96 - oy) / u - cy * sk;
+    // + vb.x/vb.y: utsnittet har IKKE nullpunkt i origo — «fast lav plassering»
+    // legger all luft OVER vifta, så vb.y er sterkt negativ på stående skjerm.
+    // Uten disse leddene sto kameraet forskjøvet med hele den lufta.
+    tx = mTx = (b.width / 2 - ox) / u + vb.x - cx * sk;
+    ty = mTy = (b.height - 96 - oy) / u + vb.y - cy * sk;
     bruk(); sentrerVifta();
   } else {
     sk = mSk = 1; tx = mTx = 0; ty = mTy = 0; grunnSk = 1;
@@ -1045,6 +1059,34 @@ function sentrerVifta() {
 // KTØs feilmelding om at bildet «beveger seg oppover og forsvinner».
 // NB: navnet holdSynlig var alt i bruk lenger nede — den holder ETT LEDD i
 // syne når et kort åpnes. Denne holder HELE vifta, og heter derfor holdVifta.
+// VIFTA SLIPPER ALDRI UT AV SYNSFELTET (KTØ 27.08.2026): «Treet kan ikke
+// forsvinne hverken opp eller ned og ut av skjermbildet ved knip» — og det
+// gjelder HELE TIDEN, begge retninger, uansett hvem som står i midten og
+// hvilket tre det er. Buret måles mot viftas egen ramme (VIFTEMÅL, settes
+// ved hver tegning): er vifta større enn flaten, får kanten aldri vike mer
+// enn 120 px innenfor kanten av flaten; er den mindre, holdes hele vifta
+// innenfor med litt slark. Klemmen ligger i bruk() — det ene stedet alt
+// kameraarbeid munner ut i — så ingen gest, animasjon eller omtegning kan
+// føre vifta ut av bildet.
+let VIFTEMÅL = null;
+function klem(s, x, y) {
+  if (!VIFTEMÅL || !VIFTEMÅL.width) return [x, y];
+  const {b, u, ox, oy} = boks();
+  if (!b.width || !u) return [x, y];
+  const M = 120, SLARK = 40;
+  const akse = (pos, mål, lav, høy) => {
+    const rom = høy - lav;
+    const lo = mål <= rom ? lav - SLARK : høy - M - mål;
+    const hi = mål <= rom ? høy - mål + SLARK : lav + M;
+    return Math.min(hi, Math.max(lo, pos));
+  };
+  const vb = duk.viewBox.baseVal;
+  const fb = VIFTEMÅL.width * s * u, fh = VIFTEMÅL.height * s * u;
+  const fx = b.left + ox + (VIFTEMÅL.x * s + x - vb.x) * u;
+  const fy = b.top + oy + (VIFTEMÅL.y * s + y - vb.y) * u;
+  const nx = akse(fx, fb, b.left, b.right), ny = akse(fy, fh, b.top, b.bottom);
+  return [x + (nx - fx) / u, y + (ny - fy) / u];
+}
 function holdVifta() {
   const lag = document.getElementById('lag');
   if (!lag) return;
@@ -1076,8 +1118,13 @@ function holdVifta() {
 }
 
 function zoomMot(klientX, klientY, faktor) {
-  const {b, u, ox, oy} = boks();
-  const mx = (klientX - b.left - ox) / u, my = (klientY - b.top - oy) / u;
+  const {b, vb, u, ox, oy} = boks();
+  // + vb.x/vb.y: fingerpunktet må regnes om til utsnittets EGNE koordinater.
+  // Utsnittet har forskjøvet nullpunkt (vb.y ≈ −1700 på stående skjerm, ≈ 0 på
+  // liggende), og uten disse leddene dro hvert knip vifta ~vb.y·(faktor−1)
+  // tavleenheter OPPOVER — treet krøp opp og ut av skjermen, bare på stående,
+  // og på nytt etter hvert sentrumsskifte. Det var DEN feilen.
+  const mx = (klientX - b.left - ox) / u + vb.x, my = (klientY - b.top - oy) / u + vb.y;
   // Taket 4,5x var satt for PC. På liten flate starter vifta alt på opptil 3,6x
   // for å fylle skjermen, så det var nesten ingen zoom igjen — de ytterste
   // ringene kunne aldri leses. Der får zoomen gå til 20x.
@@ -1142,6 +1189,15 @@ if (!NATIV) document.addEventListener('pointerdown', e => {
   // trykke); men har tavlen alt en finger, hører finger to KNIPET til, uansett
   // hvor den lander.
   if (!duk.contains(e.target) && pekere.size === 0) return;
+  // SPØKELSESFINGRE RENSKES UT. Stjeler systemet en berøring (varselgardinen
+  // øverst, hjem-stripen og adressefeltet nederst — alle i stående), kommer
+  // det aldri noe pointerup: fingeren ble stående i kartet, og neste knip
+  // telte tre fingre og målte avstanden til et punkt ingen holdt i — vifta
+  // spratt 150 px og satt fast. isPrimary er sann bare for FØRSTE finger i en
+  // ny berøringsrekke; står det da gamle fingre igjen, er de spøkelser.
+  if (e.isPrimary && e.pointerType !== 'mouse' && pekere.size) {
+    pekere.clear(); knip = 0; drar = false;
+  }
   // FINGEREN FØRES INN FØRST, FANGSTEN ETTERPÅ. Slik det sto, ble
   // setPointerCapture kalt før pekeren var registrert — slo den feil, gikk
   // fingeren tapt, `pekere` nådde aldri to, og knipet ble aldri påbegynt.
@@ -1222,6 +1278,9 @@ if (!NATIV) addEventListener('pointerup', e => {
   klikkmål = null;
 });
 if (!NATIV) addEventListener('pointercancel', slipp);
+// Mister duken fangsten av en finger uten pointerup/-cancel (systemet tok
+// gesten), renskes fingeren ut her — siste sikkerhetsnett mot spøkelsesfingre.
+if (!NATIV) duk.addEventListener('lostpointercapture', slipp);
 
 // ---------- panel ----------
 function rad(t, v) { return v ? `<dt>${t}</dt><dd>${v}</dd>` : ''; }
