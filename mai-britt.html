@@ -1159,6 +1159,10 @@ if (!NATIV) duk.addEventListener('pointermove', e => {
 function slipp(e) {
   pekere.delete(e.pointerId);
   if (pekere.size < 2) knip = 0;
+  // iOS avbryter berøringer ofte (pointercancel) — når Safari selv tar over en
+  // bevegelse. Uten dette ble `drar` stående sann etter et avbrudd, og tavlen
+  // panorerte når den skulle zoome. Alt nullstilles når siste finger er borte.
+  if (!pekere.size) { drar = false; klikkmål = null; duk.classList.remove('drar'); }
 }
 if (!NATIV) addEventListener('pointerup', e => {
   slipp(e);
