@@ -250,7 +250,11 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
   background:rgba(255,255,255,.94);border:1px solid var(--kant);
   box-shadow:0 3px 14px rgba(20,30,50,.22);color:var(--blekk)}
  body.hel.js #duk{top:0;height:100vh}
- body.hel #panel{top:auto}
+ /* I fullskjerm skal kortet fortsatt være et bunnark, ikke dekke skjermen.
+    body.hel arvet en regel med full høyde. KTØ 27.08.2026: «Ved fullskjerm-
+    modus blir anekortet heldekkende på skjermen, det er feil.» */
+ body.js.hel #panel{top:auto;bottom:0;left:0;right:0;width:100%;max-width:100%;
+  max-height:62vh}
 }
 /* LIGGENDE TELEFON: KORTET KOMMER FRA SIDEN, IKKE FRA BUNNEN (KTØ 27.08.2026).
    Det mobile oppsettet gjør kortet til et bunnark — full bredde, 62 % av
@@ -281,7 +285,8 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
     stor forskjell på høykant og liggende.» Størrelsene arves nå fra den
     stående mobilvisningen, som han er fornøyd med. */
  #lukk{width:34px;height:34px;font-size:22px;top:8px;right:8px}
- body.hel #panel{top:0}
+ /* Liggende fullskjerm: halve vinduet fra siden, som ellers liggende. */
+ body.js.hel #panel{top:0;bottom:0;left:auto;width:50vw;max-width:50vw;max-height:none}
 }
 </style></head><body>
 
