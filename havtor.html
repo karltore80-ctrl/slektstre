@@ -957,17 +957,45 @@ function tilpass() {
     // skjermen med døde marger — der skal vifta fylle bredden i stedet, og
     // toppen får heller stikke utenfor til man panorerer.
     const fyllB = (b.width * 0.98) / (vb.width * u);
-    // Taket 3,6 lot halve skjermen stå tom på høye mobilskjermer. Vifta får
-    // fylle flaten den har, uansett hvor høy den er.
-    sk = mSk = Math.min(8, Math.max(1.6, Math.max((b.height - 150) / viftehøyde, fyllB)));
+    // HELE VIFTA SKAL VÆRE SYNLIG. Gulvet på 1,6 gjorde vifta 587 px bred på en
+    // skjerm på 375 — 106 px klippet bort på HVER side, og der sto navn.
+    // KTØs regel er at navn aldri skjules; heller færre ringer. Åpningen fyller
+    // derfor BREDDEN, og går aldri bredere enn flaten. Vil man se et ledd
+    // større, knipes det inn — og knipet virker nå. Rettet 27.08.2026.
+    sk = mSk = Math.min(8, Math.min(fyllB, Math.max(1, (b.height - 150) / viftehøyde)));
     grunnSk = mSk;
     tx = mTx = (b.width / 2 - ox) / u - cx * sk;
     ty = mTy = (b.height - 96 - oy) / u - cy * sk;
+    bruk(); sentrerVifta();
   } else {
     sk = mSk = 1; tx = mTx = 0; ty = mTy = 0; grunnSk = 1;
   }
   bruk();
 }
+// VIFTA ÅPNER SEG MIDT PÅ SKJERMEN (KTØ 27.08.2026).
+// Åpningsutsnittet satte probanden 96 px over bunnen og regnet skalaen av
+// flatens høyde. Kjørte det før flaten var ferdig målt, falt skalaen ned på
+// gulvet 1,6 — og vifta ble stående liten og klistret til toppen, delvis bak
+// topplinjen, med nesten 500 px tomrom under. Målt på 375×812: topp 27, bunn
+// 321. Her sentreres det som FAKTISK er tegnet, loddrett i flaten under
+// topplinjen. Den regner på #lag sin egen bounding box, så den er riktig
+// uansett hvor mange ringer som står og hvor stor skalaen ble.
+function sentrerVifta() {
+  if (!erSmal()) return;
+  const lag = document.getElementById('lag');
+  if (!lag) return;
+  const r = lag.getBoundingClientRect();
+  if (!r.height) return;
+  const {u} = boks();
+  if (!u) return;
+  const topp = 64, ledig = innerHeight - topp;
+  const dy = (topp + (ledig - r.height) / 2) - r.top;
+  const dx = (innerWidth / 2) - (r.left + r.width / 2);
+  if (Math.abs(dy) < 2 && Math.abs(dx) < 2) return;
+  tx += dx / u; ty += dy / u; mTx += dx / u; mTy += dy / u;
+  bruk();
+}
+
 // VIFTA SKAL ALDRI KUNNE FORSVINNE HELT. Det fantes ingen grense på panorering
 // og zoom: dro man langt nok, eller knep man mens tavlen tegnet seg om, gled
 // hele vifta ut av skjermen og var borte. Her holdes minst en fjerdedel av den
@@ -1069,6 +1097,10 @@ if (!NATIV) duk.addEventListener('pointermove', e => {
     if (d > 8) {
       zoomMot((a[0] + b2[0]) / 2, (a[1] + b2[1]) / 2, d / knip);
       sk = mSk; tx = mTx; ty = mTy; bruk();      // knip skal følge fingrene direkte
+      // Grensen måler den TEGNEDE stillingen, og den henger etter mens knipet
+      // står på. Den kalles derfor om igjen etter at knipet har smekket på
+      // plass — ellers kan et kraftig knip skyve vifta nesten helt ut.
+      holdVifta();
       knip = d;
     }
     return;
@@ -1678,4 +1710,13 @@ function lesbareRinger() {
 plasserDuk();
 tegn();
 lesbareRinger();
+// FLATEN ER IKKE FERDIG MÅLT NÅR TAVLEN TEGNES FØRSTE GANG. På telefon ga det
+// et for lite (b.height - 150), skalaen falt ned på gulvet 1,6, og vifta ble
+// stående liten og klistret til toppen — delvis bak topplinjen, med nesten
+// 500 px tomrom under. Tilpasningen kjøres derfor om når layouten har satt
+// seg, og igjen ved `load` når skrifter og bilder er inne.
+// Lagt inn 27.08.2026 etter KTØs ønske om at treet åpner seg mot midten.
+function tilpassPåNytt() { plasserDuk(); sistE = -1; tilpass(); }
+requestAnimationFrame(tilpassPåNytt);
+addEventListener('load', tilpassPåNytt);
 </script></body></html>
