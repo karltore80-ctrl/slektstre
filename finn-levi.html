@@ -876,36 +876,22 @@ function autoRinger() {
   clearTimeout(ringerTimer);
   ringerTimer = setTimeout(() => {
     if (pekere.size) { autoRinger(); return; }
-    const f = mSk / (grunnSk || 1);
-    // TAVLEN GÅR MED (KTØ 23.08.2026): presser man zoomen dypt inn mot en gren,
-    // trår tavlen et steg bakover — anen i synsfeltets midte settes i sentrum,
-    // og alt der får full størrelse. Zoomer man helt ut igjen, trår den hjem.
-    if (f > 2.7) {
-      // PRØVEPUNKTET MÅ LIGGE DER VIFTA ER, IKKE PÅ 45 % AV VINDUET.
-      // På PC står halvsirkelen midt på skjermen og 45 % traff. På telefon
-      // ligger den nederst — punktet landet i tomrommet over den, og tavlen
-      // tegnet seg om med nullstilt kamera. For KTØ så det ut som at knipet
-      // ikke virket: bildet gled oppover og forsvant. Punktet regnes nå ut av
-      // det som faktisk er tegnet. Rettet 27.08.2026 etter KTØs feilmelding.
-      const lag = document.getElementById('lag');
-      const lr = lag && lag.getBoundingClientRect();
-      const px = lr && lr.width ? lr.left + lr.width / 2 : innerWidth / 2;
-      const py = lr && lr.height ? lr.top + lr.height * 0.45 : innerHeight * 0.45;
-      const e = document.elementFromPoint(
-        Math.max(1, Math.min(innerWidth - 1, px)),
-        Math.max(1, Math.min(innerHeight - 1, py)));
-      const m = e && e.closest ? e.closest('[data-pid]') : null;
-      if (m && m.dataset.pid !== SLOT[ROT]) {
-        rotstakk.push(SLOT[ROT]);
-        settSentrum(m.dataset.pid);
-        return;
-      }
-    }
-    if (f < 0.62 && rotstakk.length) {
-      settSentrum(rotstakk.pop());
-      return;
-    }
-    const ny = ringmål();
+    // TATT UT 27.08.2026 PÅ KTØs UTTRYKKELIGE ORDRE.
+    // Her sto «TAVLEN GÅR MED» (KTØ 23.08.2026): zoomet man forbi 2,7×, valgte
+    // tavlen selv en ane av synsfeltet og satte den i midten — og zoomet man
+    // helt ut igjen, trådte den hjem. På berøringsskjerm ødela det knipet, men
+    // KTØ 27.08.2026 er tydelig på at det gjelder ALLE FLATER:
+    //   «Zoom skal ikke automatisk føre til at en ny ane stiller seg i midten
+    //    og åpnes — uten at noen er trykket på. Det gjelder alle steder.»
+    // En ane settes i midten når man TRYKKER på den, aldri av en bevegelse.
+    // rotstakk står igjen og brukes fremdeles av «Tilbake til meg».
+    // OG TAVLEN SKAL IKKE TEGNE SEG OM MENS MAN ZOOMER (KTØ 27.08.2026).
+    // ringmål() la til en ring så snart zoomen passerte 1,9×. Vifta ble da
+    // tegnet med andre radier mens kameraet sto stille, og det som lå under
+    // fingeren flyttet seg — både på vei inn og på vei ut. KTØ: «det er ikke
+    // mulig å zoome og at treet holder seg i ro». På berøringsskjerm står
+    // ringtallet nå fast; det velges med tallknappene i topplinjen.
+    const ny = PEKEGROV ? RINGVALG : ringmål();
     if (ny !== RINGER) { RINGER = ny; beholdUtsnitt = true; tegn(); beholdUtsnitt = false; }
     plasstekst();
   }, 200);
