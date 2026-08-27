@@ -273,15 +273,14 @@ body.hel #panel{top:74px;max-height:calc(100vh - 92px)}
     holdt kortet ute uansett hva `.åpen` sa. `body.js` foran gir denne forrang. */
  body.js #panel.åpen{right:0;transform:none}
  #panel::before{display:none}
- /* skriften ble satt opp for et bredt bunnark; i en halv skjerm er den for stor */
- #panel{font-size:14.5px}
- #panel h2{font-size:20px}
- .plev{font-size:15px}
- .slektsledd{font-size:14px}
- .hist{font-size:15px}
- .sosken{font-size:14px}
- dl{font-size:14px;grid-template-columns:76px 1fr}
- #lukk{width:30px;height:30px;font-size:20px;top:8px;right:8px}
+ /* SKRIFTEN SKAL VÆRE LIK I BEGGE RETNINGER (KTØ 27.08.2026).
+    Her sto den satt ned et hakk, med den begrunnelsen at et halvt vindu er
+    smalere enn et bunnark. Det er galt: kortet er 406 px bredt liggende mot
+    375 px stående — praktisk talt like bredt, og lest på samme avstand.
+    KTØ: «Teksten på anekortet er for liten ved liggende mobilretning. Det var
+    stor forskjell på høykant og liggende.» Størrelsene arves nå fra den
+    stående mobilvisningen, som han er fornøyd med. */
+ #lukk{width:34px;height:34px;font-size:22px;top:8px;right:8px}
  body.hel #panel{top:0}
 }
 </style></head><body>
