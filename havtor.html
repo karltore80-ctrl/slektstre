@@ -1041,9 +1041,18 @@ function holdVifta() {
   if (!r.width || !r.height) return;
   const {u} = boks();
   if (!u) return;
+  // GRENSEN MÅ VÆRE EN SIKRING, IKKE EN STRAMMING (KTØ 27.08.2026).
+  // Den krevde at en FJERDEDEL av vifta var innenfor skjermen. Zoomet inn er
+  // vifta mange ganger større enn skjermen, og en fjerdedel av den er da mer
+  // enn hele flaten — så grensen grep ved hver eneste bevegelse og rykket i
+  // treet. KTØ: «Zoom er ustabil. Fungerer fast ved første knip, deretter
+  // ustabil.» Nå kreves bare at et lite stykke av vifta er synlig, og grensen
+  // rører ingenting så lenge noe av den er på skjermen.
   const topp = 64;                                   // topplinjen dekker dette
-  const minX = Math.min(r.width, innerWidth) * 0.25;
-  const minY = Math.min(r.height, innerHeight - topp) * 0.25;
+  // Rører ingenting så lenge noen del av vifta er på skjermen.
+  if (r.right > 0 && r.left < innerWidth && r.bottom > topp && r.top < innerHeight) return;
+  const minX = Math.min(90, r.width  * 0.5);
+  const minY = Math.min(90, r.height * 0.5);
   let dx = 0, dy = 0;
   if (r.right  < minX)              dx = minX - r.right;
   else if (r.left > innerWidth - minX)  dx = (innerWidth - minX) - r.left;
@@ -1063,7 +1072,7 @@ function zoomMot(klientX, klientY, faktor) {
   // ringene kunne aldri leses. Der får zoomen gå til 20x.
   const ny = Math.min(erSmal() ? 20 : 6, Math.max(.6, mSk * faktor));
   mTx = mx - (mx - mTx) * (ny / mSk); mTy = my - (my - mTy) * (ny / mSk); mSk = ny;
-  kjør(); holdVifta();
+  kjør();
 }
 if (!NATIV) duk.addEventListener('wheel', e => {
   e.preventDefault();
@@ -1127,10 +1136,7 @@ if (!NATIV) duk.addEventListener('pointermove', e => {
     if (d > 8) {
       zoomMot((a[0] + b2[0]) / 2, (a[1] + b2[1]) / 2, d / knip);
       sk = mSk; tx = mTx; ty = mTy; bruk();      // knip skal følge fingrene direkte
-      // Grensen måler den TEGNEDE stillingen, og den henger etter mens knipet
-      // står på. Den kalles derfor om igjen etter at knipet har smekket på
-      // plass — ellers kan et kraftig knip skyve vifta nesten helt ut.
-      holdVifta();
+
       knip = d;
     }
     return;
@@ -1143,7 +1149,7 @@ if (!NATIV) duk.addEventListener('pointermove', e => {
   if (flyttet < 8) { sx = e.clientX; sy = e.clientY; return; }
   const dx = (e.clientX - sx) * s, dy = (e.clientY - sy) * s;
   tx += dx; ty += dy; mTx += dx; mTy += dy;
-  sx = e.clientX; sy = e.clientY; bruk(); holdVifta();
+  sx = e.clientX; sy = e.clientY; bruk();
 });
 function slipp(e) {
   pekere.delete(e.pointerId);
@@ -1154,6 +1160,7 @@ if (!NATIV) addEventListener('pointerup', e => {
   if (e.target.closest('#panel')) return;   // klikk inni infopanelet (f.eks. "Vis avskrift") skal ikke lukke panelet
   if (pekere.size) return;
   drar = false; duk.classList.remove('drar');
+  holdVifta();                    // sikringen prøves når hånden er løftet, aldri under
   if (flyttet < 10) {
     const nå = Date.now();
     if (nå - sistTapp < 320 && Math.hypot(e.clientX - tappX, e.clientY - tappY) < 40) {
